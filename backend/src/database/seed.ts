@@ -4,14 +4,9 @@ import { DEFAULT_STORE_SETTINGS } from '../shared/index.js';
 import bcrypt from 'bcryptjs';
 
 export async function seedDatabase(force = false) {
-  if (!force && store.users.length > 0) {
-    console.log('[Seed] Database records already present. Preserving existing orders, records, and client activity.');
-    return;
-  }
+  console.log('[Seed] Seeding MagnifiScent luxury catalog & initial admin...');
 
-  console.log('[Seed] Seeding Magnificent luxury catalog & initial admin...');
-
-  // Seed store without clearing transactional state unless forced
+  // Seed local store
   store.seed(force);
 
   if (!pool) {
@@ -29,7 +24,11 @@ export async function seedDatabase(force = false) {
     await client.query(`
       INSERT INTO users (full_name, email, phone, password_hash, role)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (email) DO NOTHING
+      ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        full_name = EXCLUDED.full_name,
+        role = EXCLUDED.role,
+        is_active = true
     `, [INITIAL_ADMIN.fullName, INITIAL_ADMIN.email, INITIAL_ADMIN.phone, passwordHash, INITIAL_ADMIN.role]);
 
     // 2. Seed Categories
