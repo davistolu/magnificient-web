@@ -23,6 +23,7 @@ import auditRoutes from './modules/audit/audit.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import newsletterRoutes from './modules/newsletter/newsletter.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
+import teamRoutes from './modules/admin-team/team.routes.js';
 
 export function createApp() {
   const app = express();
@@ -107,6 +108,7 @@ export function createApp() {
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/newsletter', newsletterRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/admin/team', teamRoutes);
 
   // 404 Handler for undefined API routes
   app.use('/api/*', (req, res) => {

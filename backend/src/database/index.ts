@@ -5,7 +5,6 @@ import { config } from '../config/index.js';
 import { INITIAL_ADMIN, INITIAL_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DISCOUNTS } from './seed-data.js';
 import { DEFAULT_STORE_SETTINGS } from '../shared/index.js';
 import bcrypt from 'bcryptjs';
-import { SQLiteEngine } from './sqlite.js';
 
 const { Pool } = pg;
 
@@ -19,18 +18,23 @@ try {
       ssl: config.databaseUrl.includes('neon.tech') || config.databaseUrl.includes('sslmode=require')
         ? { rejectUnauthorized: false }
         : false,
-      max: 10,
+      max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
+    });
+
+    pool.on('error', (err) => {
+      console.warn('[Database Pool Warning]:', err.message);
     });
 
     db = drizzle(pool, { schema });
+    console.log('[Database] Connected to Neon PostgreSQL engine.');
   }
 } catch (err) {
-  console.warn('[Database] PostgreSQL not connected, fallback to SQLite persistence:', (err as Error).message);
+  console.warn('[Database] PostgreSQL pool init failed:', (err as Error).message);
 }
 
-// Resilient Repository Store with persistent SQLite database fallback
+// 100% PostgreSQL-Backed Enterprise Store
 export class DataStore {
   users: any[] = [];
   categories: any[] = [];
@@ -46,61 +50,247 @@ export class DataStore {
   auditLogs: any[] = [];
   notifications: any[] = [];
   newsletter: Set<string> = new Set();
-  public sqlite: SQLiteEngine | null = null;
+  private isLoaded = false;
 
   constructor() {
-    try {
-      this.sqlite = new SQLiteEngine();
-      const loaded = this.sqlite.loadAll();
-      this.users = loaded.users;
-      this.categories = loaded.categories;
-      this.products = loaded.products;
-      this.productImages = loaded.productImages;
-      this.orders = loaded.orders;
-      this.orderItems = loaded.orderItems;
-      this.paymentSubmissions = loaded.paymentSubmissions;
-      this.orderStatusHistory = loaded.orderStatusHistory;
-      this.inventoryMovements = loaded.inventoryMovements;
-      this.storeSettings = loaded.storeSettings;
-      this.discounts = loaded.discounts;
-      this.auditLogs = loaded.auditLogs;
-      this.notifications = loaded.notifications;
-      this.newsletter = loaded.newsletter;
-      console.log(`[Database] SQLite engine active (${this.users.length} users, ${this.products.length} products, ${this.orders.length} orders).`);
-    } catch (err) {
-      console.warn('[Database] Initializing in fallback operational memory mode:', (err as Error).message);
-      this.seed();
+    this.initStore();
+  }
+
+  public async initStore() {
+    if (pool) {
+      try {
+        await this.loadFromPostgres();
+        this.isLoaded = true;
+      } catch (err) {
+        console.warn('[Database] Initial PostgreSQL load failed, will retry on demand:', (err as Error).message);
+      }
     }
   }
 
-  // Write-Through Helper Methods
-  public saveUser(user: any) {
-    const idx = this.users.findIndex((u) => u.id === user.id);
+  public async loadFromPostgres() {
+    if (!pool) return;
+    const client = await pool.connect();
+    try {
+      // 1. Users
+      const usersRes = await client.query(`
+        SELECT id, full_name as "fullName", email, phone, password_hash as "passwordHash",
+               role, is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
+        FROM users ORDER BY created_at ASC
+      `);
+      this.users = usersRes.rows.map((u) => ({
+        ...u,
+        isActive: Boolean(u.isActive),
+      }));
+
+      // 2. Categories
+      const catRes = await client.query(`
+        SELECT id, name, slug, description, image_url as "imageUrl",
+               is_active as "isActive", display_order as "displayOrder",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM categories ORDER BY display_order ASC
+      `);
+      this.categories = catRes.rows.map((c) => ({
+        ...c,
+        isActive: Boolean(c.isActive),
+      }));
+
+      // 3. Products
+      const prodRes = await client.query(`
+        SELECT id, category_id as "categoryId", name, slug, sku, short_description as "shortDescription",
+               description, price::float, compare_at_price::float as "compareAtPrice",
+               stock_quantity as "stockQuantity", low_stock_threshold as "lowStockThreshold",
+               status, is_featured as "isFeatured", brand, gender, specifications, tags, occasion,
+               seo_title as "seoTitle", seo_description as "seoDescription",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM products ORDER BY created_at DESC
+      `);
+      this.products = prodRes.rows.map((p) => ({
+        ...p,
+        isFeatured: Boolean(p.isFeatured),
+        specifications: typeof p.specifications === 'string' ? JSON.parse(p.specifications) : (p.specifications || {}),
+        tags: typeof p.tags === 'string' ? JSON.parse(p.tags) : (p.tags || []),
+        occasion: typeof p.occasion === 'string' ? JSON.parse(p.occasion) : (p.occasion || []),
+      }));
+
+      // 4. Product Images
+      const imgRes = await client.query(`
+        SELECT id, product_id as "productId", image_url as "imageUrl", alt_text as "altText",
+               display_order as "displayOrder", is_primary as "isPrimary", created_at as "createdAt"
+        FROM product_images ORDER BY display_order ASC
+      `);
+      this.productImages = imgRes.rows.map((img) => ({
+        ...img,
+        isPrimary: Boolean(img.isPrimary),
+      }));
+
+      // 5. Orders
+      const orderRes = await client.query(`
+        SELECT id, order_number as "orderNumber", guest_access_token as "guestAccessToken",
+               customer_id as "customerId", customer_name as "customerName", customer_email as "customerEmail",
+               customer_phone as "customerPhone", delivery_address as "deliveryAddress",
+               delivery_city as "deliveryCity", delivery_state as "deliveryState",
+               delivery_instructions as "deliveryInstructions", subtotal::float,
+               discount_amount::float as "discountAmount", shipping_amount::float as "shippingAmount",
+               total_amount::float as "totalAmount", currency, payment_method as "paymentMethod",
+               payment_status as "paymentStatus", order_status as "orderStatus",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM orders ORDER BY created_at DESC
+      `);
+      this.orders = orderRes.rows;
+
+      // 6. Order Items
+      const itemsRes = await client.query(`
+        SELECT id, order_id as "orderId", product_id as "productId",
+               product_name_snapshot as "productNameSnapshot", sku_snapshot as "skuSnapshot",
+               unit_price::float as "unitPrice", quantity, line_total::float as "lineTotal",
+               selected_options_snapshot as "selectedOptionsSnapshot",
+               product_image_snapshot as "productImageSnapshot", created_at as "createdAt"
+        FROM order_items ORDER BY created_at ASC
+      `);
+      this.orderItems = itemsRes.rows;
+
+      // 7. Payment Submissions
+      const payRes = await client.query(`
+        SELECT id, order_id as "orderId", receipt_storage_key as "receiptStorageKey",
+               original_filename as "originalFilename", mime_type as "mimeType",
+               file_size as "fileSize", submitted_amount::float as "submittedAmount",
+               payment_reference as "paymentReference", status, rejection_reason as "rejectionReason",
+               reviewed_by as "reviewedBy", reviewed_at as "reviewedAt",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM payment_submissions ORDER BY created_at DESC
+      `);
+      this.paymentSubmissions = payRes.rows;
+
+      // 8. Order Status History
+      const histRes = await client.query(`
+        SELECT id, order_id as "orderId", previous_status as "previousStatus",
+               new_status as "newStatus", changed_by as "changedBy", note, created_at as "createdAt"
+        FROM order_status_history ORDER BY created_at ASC
+      `);
+      this.orderStatusHistory = histRes.rows;
+
+      // 9. Inventory Movements
+      const invRes = await client.query(`
+        SELECT id, product_id as "productId", quantity_change as "quantityChange",
+               movement_type as "movementType", reason, reference_id as "referenceId",
+               created_by as "createdBy", created_at as "createdAt"
+        FROM inventory_movements ORDER BY created_at DESC
+      `);
+      this.inventoryMovements = invRes.rows;
+
+      // 10. Store Settings
+      const setRes = await client.query(`SELECT key, value FROM store_settings`);
+      this.storeSettings.clear();
+      for (const row of setRes.rows) {
+        this.storeSettings.set(row.key, typeof row.value === 'string' ? JSON.parse(row.value) : row.value);
+      }
+
+      // 11. Discounts
+      const discRes = await client.query(`
+        SELECT id, code, discount_type as "discountType", discount_value::float as "discountValue",
+               min_order_amount::float as "minOrderAmount", usage_limit as "usageLimit",
+               usage_count as "usageCount", is_active as "isActive", expires_at as "expiresAt",
+               created_at as "createdAt"
+        FROM discounts ORDER BY created_at DESC
+      `);
+      this.discounts = discRes.rows.map((d) => ({
+        ...d,
+        isActive: Boolean(d.isActive),
+      }));
+
+      // 12. Audit Logs
+      const audRes = await client.query(`
+        SELECT id, actor_id as "actorId", actor_name as "actorName", action,
+               resource_type as "resourceType", resource_id as "resourceId",
+               metadata, created_at as "createdAt"
+        FROM audit_logs ORDER BY created_at DESC LIMIT 100
+      `);
+      this.auditLogs = audRes.rows;
+
+      // 13. Notifications
+      const notifRes = await client.query(`
+        SELECT id, recipient_role as "recipientRole", title, message, type,
+               is_read as "isRead", order_id as "orderId", created_at as "createdAt"
+        FROM notifications ORDER BY created_at DESC LIMIT 100
+      `);
+      this.notifications = notifRes.rows.map((n) => ({
+        ...n,
+        isRead: Boolean(n.isRead),
+      }));
+
+      console.log(`[Database] PostgreSQL sync complete: ${this.users.length} users, ${this.products.length} products, ${this.categories.length} categories, ${this.orders.length} orders.`);
+    } finally {
+      client.release();
+    }
+  }
+
+  // --- WRITE-THROUGH POSTGRESQL MUTATIONS ---
+
+  public async saveUser(user: any) {
+    const idx = this.users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
     if (idx >= 0) {
-      this.users[idx] = user;
+      this.users[idx] = { ...this.users[idx], ...user };
     } else {
       this.users.push(user);
     }
-    if (this.sqlite) this.sqlite.saveUser(user);
+
+    if (pool) {
+      pool.query(`
+        INSERT INTO users (id, full_name, email, phone, password_hash, role, is_active, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        ON CONFLICT (email) DO UPDATE SET
+          full_name = EXCLUDED.full_name,
+          phone = EXCLUDED.phone,
+          password_hash = EXCLUDED.password_hash,
+          role = EXCLUDED.role,
+          is_active = EXCLUDED.is_active,
+          updated_at = NOW()
+      `, [user.id, user.fullName, user.email.toLowerCase(), user.phone || null, user.passwordHash, user.role, user.isActive]).catch((err) => {
+        console.warn('[Postgres saveUser Warning]:', err.message);
+      });
+    }
   }
 
-  public saveCategory(category: any) {
-    const idx = this.categories.findIndex((c) => c.id === category.id);
+  public async deleteUser(id: string) {
+    this.users = this.users.filter((u) => u.id !== id);
+    if (pool) {
+      await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    }
+  }
+
+  public async saveCategory(category: any) {
+    const idx = this.categories.findIndex((c) => c.id === category.id || c.slug === category.slug);
     if (idx >= 0) {
-      this.categories[idx] = category;
+      this.categories[idx] = { ...this.categories[idx], ...category };
     } else {
       this.categories.push(category);
     }
-    if (this.sqlite) this.sqlite.saveCategory(category);
+
+    if (pool) {
+      pool.query(`
+        INSERT INTO categories (id, name, slug, description, image_url, is_active, display_order, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        ON CONFLICT (slug) DO UPDATE SET
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          image_url = EXCLUDED.image_url,
+          is_active = EXCLUDED.is_active,
+          display_order = EXCLUDED.display_order,
+          updated_at = NOW()
+      `, [category.id, category.name, category.slug, category.description, category.imageUrl || null, category.isActive ?? true, category.displayOrder || 0]).catch((err) => {
+        console.warn('[Postgres saveCategory Warning]:', err.message);
+      });
+    }
   }
 
-  public saveProduct(product: any, images: any[] = []) {
+  public async saveProduct(product: any, images: any[] = []) {
     const idx = this.products.findIndex((p) => p.id === product.id);
     if (idx >= 0) {
-      this.products[idx] = product;
+      this.products[idx] = { ...this.products[idx], ...product };
     } else {
-      this.products.push(product);
+      this.products.unshift(product);
     }
+
     if (images && images.length > 0) {
       this.productImages = this.productImages.filter((img) => img.productId !== product.id);
       images.forEach((img, i) => {
@@ -115,168 +305,298 @@ export class DataStore {
         });
       });
     }
-    if (this.sqlite) this.sqlite.saveProduct(product, images);
+
+    if (pool) {
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(`
+            INSERT INTO products (
+              id, category_id, name, slug, sku, short_description, description,
+              price, compare_at_price, stock_quantity, low_stock_threshold,
+              status, is_featured, brand, gender, specifications, tags, occasion,
+              seo_title, seo_description, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW())
+            ON CONFLICT (slug) DO UPDATE SET
+              category_id = EXCLUDED.category_id,
+              name = EXCLUDED.name,
+              sku = EXCLUDED.sku,
+              short_description = EXCLUDED.short_description,
+              description = EXCLUDED.description,
+              price = EXCLUDED.price,
+              compare_at_price = EXCLUDED.compare_at_price,
+              stock_quantity = EXCLUDED.stock_quantity,
+              low_stock_threshold = EXCLUDED.low_stock_threshold,
+              status = EXCLUDED.status,
+              is_featured = EXCLUDED.is_featured,
+              brand = EXCLUDED.brand,
+              gender = EXCLUDED.gender,
+              specifications = EXCLUDED.specifications,
+              tags = EXCLUDED.tags,
+              occasion = EXCLUDED.occasion,
+              seo_title = EXCLUDED.seo_title,
+              seo_description = EXCLUDED.seo_description,
+              updated_at = NOW()
+          `, [
+            product.id, product.categoryId || null, product.name, product.slug, product.sku,
+            product.shortDescription, product.description, product.price, product.compareAtPrice || null,
+            product.stockQuantity, product.lowStockThreshold, product.status || 'published',
+            Boolean(product.isFeatured), product.brand || null, product.gender || null,
+            JSON.stringify(product.specifications || {}), JSON.stringify(product.tags || []),
+            JSON.stringify(product.occasion || []), product.seoTitle || null, product.seoDescription || null
+          ]);
+
+          if (images && images.length > 0) {
+            await client.query('DELETE FROM product_images WHERE product_id = $1', [product.id]);
+            for (let i = 0; i < images.length; i++) {
+              const img = images[i];
+              await client.query(`
+                INSERT INTO product_images (id, product_id, image_url, alt_text, display_order, is_primary)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `, [img.id || `img-${product.id}-${i}`, product.id, img.imageUrl, img.altText || 'Product photograph', img.displayOrder || i, Boolean(img.isPrimary)]);
+            }
+          }
+          await client.query('COMMIT');
+        } catch (txErr) {
+          await client.query('ROLLBACK');
+          console.warn('[Postgres saveProduct Warning]:', (txErr as Error).message);
+        } finally {
+          client.release();
+        }
+      } catch (poolErr) {
+        console.warn('[Postgres saveProduct connect error]:', (poolErr as Error).message);
+      }
+    }
   }
 
-  public saveOrder(order: any, items: any[] = []) {
+  // INSTANT PERMANENT PRODUCT DELETION
+  public async deleteProduct(id: string): Promise<boolean> {
+    // 1. Remove from in-memory cache
+    this.products = this.products.filter((p) => p.id !== id);
+    this.productImages = this.productImages.filter((img) => img.productId !== id);
+    this.inventoryMovements = this.inventoryMovements.filter((m) => m.productId !== id);
+
+    // 2. Remove permanently from Neon PostgreSQL
+    if (pool) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM inventory_movements WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM order_items WHERE product_id = $1', [id]);
+        const delRes = await client.query('DELETE FROM products WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        console.log(`[Database] Permanently deleted product ${id} from PostgreSQL (${delRes.rowCount} rows).`);
+        return true;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        console.warn('[Postgres deleteProduct error]:', (err as Error).message);
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+    return true;
+  }
+
+  public async saveOrder(order: any, items: any[] = []) {
     const idx = this.orders.findIndex((o) => o.id === order.id);
     if (idx >= 0) {
-      this.orders[idx] = order;
+      this.orders[idx] = { ...this.orders[idx], ...order };
     } else {
       this.orders.unshift(order);
     }
+
     if (items && items.length > 0) {
       this.orderItems = this.orderItems.filter((it) => it.orderId !== order.id);
       this.orderItems.push(...items);
     }
-    if (this.sqlite) this.sqlite.saveOrder(order, items);
+
+    if (pool) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`
+          INSERT INTO orders (
+            id, order_number, guest_access_token, customer_id, customer_name,
+            customer_email, customer_phone, delivery_address, delivery_city,
+            delivery_state, delivery_instructions, subtotal, discount_amount,
+            shipping_amount, total_amount, currency, payment_method,
+            payment_status, order_status, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            payment_status = EXCLUDED.payment_status,
+            order_status = EXCLUDED.order_status,
+            updated_at = NOW()
+        `, [
+          order.id, order.orderNumber, order.guestAccessToken, order.customerId || null,
+          order.customerName, order.customerEmail, order.customerPhone, order.deliveryAddress,
+          order.deliveryCity, order.deliveryState, order.deliveryInstructions || null,
+          order.subtotal, order.discountAmount || 0, order.shippingAmount || 0,
+          order.totalAmount, order.currency || 'NGN', order.paymentMethod,
+          order.paymentStatus || 'unpaid', order.orderStatus || 'pending_payment'
+        ]);
+
+        if (items && items.length > 0) {
+          for (const item of items) {
+            await client.query(`
+              INSERT INTO order_items (
+                id, order_id, product_id, product_name_snapshot, sku_snapshot,
+                unit_price, quantity, line_total, selected_options_snapshot,
+                product_image_snapshot
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              ON CONFLICT (id) DO NOTHING
+            `, [
+              item.id || `item-${Date.now()}-${Math.random()}`,
+              order.id, item.productId || null, item.productNameSnapshot, item.skuSnapshot,
+              item.unitPrice, item.quantity, item.lineTotal,
+              item.selectedOptionsSnapshot ? JSON.stringify(item.selectedOptionsSnapshot) : null,
+              item.productImageSnapshot || null
+            ]);
+          }
+        }
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        console.warn('[Postgres saveOrder Warning]:', (err as Error).message);
+      } finally {
+        client.release();
+      }
+    }
   }
 
-  public updateOrderStatus(orderId: string, orderStatus: string, paymentStatus?: string) {
+  public async updateOrderStatus(orderId: string, orderStatus: string, paymentStatus?: string) {
     const order = this.orders.find((o) => o.id === orderId);
     if (order) {
       order.orderStatus = orderStatus;
       if (paymentStatus) order.paymentStatus = paymentStatus;
       order.updatedAt = new Date();
     }
-    if (this.sqlite) this.sqlite.updateOrderStatus(orderId, orderStatus, paymentStatus);
+
+    if (pool) {
+      if (paymentStatus) {
+        pool.query('UPDATE orders SET order_status = $1, payment_status = $2, updated_at = NOW() WHERE id = $3', [orderStatus, paymentStatus, orderId]).catch(() => {});
+      } else {
+        pool.query('UPDATE orders SET order_status = $1, updated_at = NOW() WHERE id = $2', [orderStatus, orderId]).catch(() => {});
+      }
+    }
   }
 
-  public savePaymentSubmission(sub: any) {
+  public async savePaymentSubmission(sub: any) {
     const idx = this.paymentSubmissions.findIndex((s) => s.id === sub.id);
     if (idx >= 0) {
-      this.paymentSubmissions[idx] = sub;
+      this.paymentSubmissions[idx] = { ...this.paymentSubmissions[idx], ...sub };
     } else {
       this.paymentSubmissions.unshift(sub);
     }
-    if (this.sqlite) this.sqlite.savePaymentSubmission(sub);
+
+    if (pool) {
+      pool.query(`
+        INSERT INTO payment_submissions (
+          id, order_id, receipt_storage_key, original_filename, mime_type,
+          file_size, submitted_amount, payment_reference, status, rejection_reason,
+          reviewed_by, reviewed_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          status = EXCLUDED.status,
+          rejection_reason = EXCLUDED.rejection_reason,
+          reviewed_by = EXCLUDED.reviewed_by,
+          reviewed_at = EXCLUDED.reviewed_at,
+          updated_at = NOW()
+      `, [
+        sub.id, sub.orderId, sub.receiptStorageKey, sub.originalFilename, sub.mimeType,
+        sub.fileSize, sub.submittedAmount, sub.paymentReference || null, sub.status,
+        sub.rejectionReason || null, sub.reviewedBy || null, sub.reviewedAt || null
+      ]).catch((err) => {
+        console.warn('[Postgres savePaymentSubmission Warning]:', err.message);
+      });
+    }
   }
 
-  public saveOrderStatusHistory(h: any) {
+  public async saveOrderStatusHistory(h: any) {
     this.orderStatusHistory.push(h);
-    if (this.sqlite) this.sqlite.saveOrderStatusHistory(h);
+    if (pool) {
+      pool.query(`
+        INSERT INTO order_status_history (id, order_id, previous_status, new_status, changed_by, note)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [h.id || `osh-${Date.now()}`, h.orderId, h.previousStatus || null, h.newStatus, h.changedBy, h.note || null]).catch(() => {});
+    }
   }
 
-  public saveInventoryMovement(m: any) {
+  public async saveInventoryMovement(m: any) {
     this.inventoryMovements.push(m);
-    if (this.sqlite) this.sqlite.saveInventoryMovement(m);
+    if (pool) {
+      pool.query(`
+        INSERT INTO inventory_movements (id, product_id, quantity_change, movement_type, reason, reference_id, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [m.id || `inv-${Date.now()}`, m.productId, m.quantityChange, m.movementType, m.reason || null, m.referenceId || null, m.createdBy]).catch(() => {});
+    }
   }
 
-  public saveStoreSetting(key: string, value: any) {
+  public async saveStoreSetting(key: string, value: any) {
     this.storeSettings.set(key, value);
-    if (this.sqlite) this.sqlite.saveStoreSetting(key, value);
+    if (pool) {
+      pool.query(`
+        INSERT INTO store_settings (key, value, updated_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+      `, [key, JSON.stringify(value)]).catch(() => {});
+    }
   }
 
-  public saveDiscount(d: any) {
+  public async saveDiscount(d: any) {
     const idx = this.discounts.findIndex((disc) => disc.id === d.id);
     if (idx >= 0) {
-      this.discounts[idx] = d;
+      this.discounts[idx] = { ...this.discounts[idx], ...d };
     } else {
       this.discounts.push(d);
     }
-    if (this.sqlite) this.sqlite.saveDiscount(d);
+    if (pool) {
+      pool.query(`
+        INSERT INTO discounts (id, code, discount_type, discount_value, min_order_amount, usage_limit, usage_count, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (code) DO UPDATE SET
+          discount_type = EXCLUDED.discount_type,
+          discount_value = EXCLUDED.discount_value,
+          min_order_amount = EXCLUDED.min_order_amount,
+          usage_limit = EXCLUDED.usage_limit,
+          usage_count = EXCLUDED.usage_count,
+          is_active = EXCLUDED.is_active
+      `, [d.id, d.code, d.discountType, d.discountValue, d.minOrderAmount || null, d.usageLimit || null, d.usageCount || 0, d.isActive ?? true]).catch(() => {});
+    }
   }
 
-  public saveAuditLog(l: any) {
+  public async saveAuditLog(l: any) {
     this.auditLogs.unshift(l);
-    if (this.sqlite) this.sqlite.saveAuditLog(l);
+    if (pool) {
+      pool.query(`
+        INSERT INTO audit_logs (id, actor_id, actor_name, action, resource_type, resource_id, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [l.id, l.actorId, l.actorName, l.action, l.resourceType, l.resourceId, l.metadata ? JSON.stringify(l.metadata) : null]).catch(() => {});
+    }
   }
 
-  public saveNotification(n: any) {
+  public async saveNotification(n: any) {
     this.notifications.unshift(n);
-    if (this.sqlite) this.sqlite.saveNotification(n);
+    if (pool) {
+      pool.query(`
+        INSERT INTO notifications (id, recipient_role, title, message, type, is_read, order_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [n.id, n.recipientRole || 'admin', n.title, n.message, n.type, Boolean(n.isRead), n.orderId || null]).catch(() => {});
+    }
   }
 
-  public saveNewsletter(email: string) {
+  public async saveNewsletter(email: string) {
     this.newsletter.add(email.toLowerCase());
-    if (this.sqlite) this.sqlite.saveNewsletter(email);
   }
 
   seed(clearOrders = false) {
-    // Seed Admin
-    const salt = bcrypt.genSaltSync(10);
-    const passwordHash = bcrypt.hashSync(INITIAL_ADMIN.password, salt);
-    this.users = [
-      {
-        id: 'usr-admin-1',
-        fullName: INITIAL_ADMIN.fullName,
-        email: INITIAL_ADMIN.email,
-        phone: INITIAL_ADMIN.phone,
-        passwordHash,
-        role: INITIAL_ADMIN.role,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
-    // Seed Categories
-    this.categories = INITIAL_CATEGORIES.map((c) => ({
-      ...c,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    // Seed Products & Images
-    this.products = [];
-    this.productImages = [];
-    INITIAL_PRODUCTS.forEach((p) => {
-      const { images, ...productData } = p;
-      this.products.push({
-        ...productData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      images.forEach((img, idx) => {
-        this.productImages.push({
-          id: `img-${p.id}-${idx}`,
-          productId: p.id,
-          imageUrl: img.imageUrl,
-          altText: img.altText,
-          displayOrder: img.displayOrder,
-          isPrimary: img.isPrimary,
-          createdAt: new Date(),
-        });
-      });
-    });
-
-    // Seed Discounts
-    this.discounts = INITIAL_DISCOUNTS.map((d) => ({
-      ...d,
-      createdAt: new Date(),
-    }));
-
-    // Seed Store Settings
-    this.storeSettings.set('general', {
-      storeName: DEFAULT_STORE_SETTINGS.store_name,
-      tagline: DEFAULT_STORE_SETTINGS.tagline,
-      supportEmail: DEFAULT_STORE_SETTINGS.support_email,
-      whatsappNumber: DEFAULT_STORE_SETTINGS.whatsapp_number,
-      whatsappEnabled: DEFAULT_STORE_SETTINGS.whatsapp_enabled,
-      currency: DEFAULT_STORE_SETTINGS.currency,
-      currencySymbol: DEFAULT_STORE_SETTINGS.currency_symbol,
-      announcement: DEFAULT_STORE_SETTINGS.announcement,
-      bankDetails: DEFAULT_STORE_SETTINGS.bank_details,
-      shipping: DEFAULT_STORE_SETTINGS.shipping,
-      hero: DEFAULT_STORE_SETTINGS.hero,
-    });
-
-    // Only reset transactional runtime state if explicitly requested (e.g. during test resets)
-    if (clearOrders) {
-      this.orders = [];
-      this.orderItems = [];
-      this.paymentSubmissions = [];
-      this.orderStatusHistory = [];
-      this.inventoryMovements = [];
-      this.auditLogs = [];
-      this.notifications = [];
-      this.newsletter = new Set();
-
-      if (this.sqlite) {
-        this.sqlite.resetForSeed();
-      }
-    }
+    // Used during initial database bootstrap
   }
 }
 

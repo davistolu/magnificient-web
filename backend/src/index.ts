@@ -17,7 +17,7 @@ async function bootstrap() {
   const server = app.listen(config.port, () => {
     console.log(`
 ===========================================================
-  MAGNIFICENT LUXURY COMMERCE PLATFORM - API READY
+  MAGNIFISCENT LUXURY COMMERCE PLATFORM - API READY
 ===========================================================
   Listening on:   http://localhost:${config.port}
   Health Check:   http://localhost:${config.port}/health

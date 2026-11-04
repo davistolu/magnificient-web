@@ -3,13 +3,31 @@ import { Link } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { useToast } from '../../context/ToastContext.js';
-import { Plus, Edit, Archive, Search, Package, Play } from 'lucide-react';
+import { Plus, Edit, Archive, Trash2, Search, Package, Play } from 'lucide-react';
+import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
 export const ProductListPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { success, error } = useToast();
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    variant: 'danger' | 'warning';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: '',
+    variant: 'danger',
+    onConfirm: () => {},
+  });
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -29,11 +47,43 @@ export const ProductListPage: React.FC = () => {
     loadProducts();
   }, [search]);
 
-  const handleArchive = async (id: string, name: string) => {
-    if (!window.confirm(`Archive creation "${name}"? It will no longer be visible on the public storefront.`)) {
-      return;
-    }
+  const executeDeleteProduct = async (id: string, name: string) => {
+    // Optimistic UI update
+    const previousProducts = [...products];
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setDeletingId(id);
 
+    try {
+      const res = await api.deleteProduct(id);
+      if (res.success) {
+        success('Product Deleted', `"${name}" was permanently removed.`);
+      } else {
+        throw new Error(res.message || 'Deletion failed');
+      }
+    } catch (err: any) {
+      // Rollback on error
+      setProducts(previousProducts);
+      error('Deletion Error', err.message || 'Failed to delete product');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteProduct = (id: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Creation Permanently',
+      message: `Are you sure you want to permanently delete "${name}" from the database? This action is instant and cannot be undone.`,
+      confirmLabel: 'Delete Product',
+      variant: 'danger',
+      onConfirm: () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        executeDeleteProduct(id, name);
+      },
+    });
+  };
+
+  const executeArchive = async (id: string, name: string) => {
     try {
       const res = await api.archiveProduct(id);
       if (res.success) {
@@ -43,6 +93,20 @@ export const ProductListPage: React.FC = () => {
     } catch (err: any) {
       error('Archive Error', err.message);
     }
+  };
+
+  const handleArchive = (id: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Archive Creation',
+      message: `Archive creation "${name}"? It will no longer be visible on the public storefront catalog while preserving orders.`,
+      confirmLabel: 'Archive Product',
+      variant: 'warning',
+      onConfirm: () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        executeArchive(id, name);
+      },
+    });
   };
 
   return (
@@ -197,10 +261,18 @@ export const ProductListPage: React.FC = () => {
                         </Link>
                         <button
                           onClick={() => handleArchive(p.id, p.name)}
-                          className="p-1.5 text-stone-muted hover:text-red-700 inline-block"
-                          title="Archive Product"
+                          className="p-1.5 text-stone-muted hover:text-amber-700 inline-block transition-colors"
+                          title="Archive Product (Hide from storefront)"
                         >
                           <Archive className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(p.id, p.name)}
+                          disabled={deletingId === p.id}
+                          className="p-1.5 text-stone-muted hover:text-red-700 inline-block transition-colors disabled:opacity-50"
+                          title="Permanently Delete Product from Database"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
@@ -211,6 +283,16 @@ export const ProductListPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
