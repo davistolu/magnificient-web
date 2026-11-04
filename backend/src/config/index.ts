@@ -2,9 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-dotenv.config();
-
 const API_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+dotenv.config({ path: path.join(API_ROOT, '.env') });
+dotenv.config();
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
