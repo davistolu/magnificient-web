@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch --ignore '**/data/**' --ignore '**/uploads/**' src/index.ts",
     "build": "tsc",
+    "build:frontend": "npm run build",
     "start": "node dist/index.js",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
