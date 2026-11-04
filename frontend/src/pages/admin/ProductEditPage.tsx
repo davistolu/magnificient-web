@@ -21,6 +21,7 @@ import {
   Film,
 } from 'lucide-react';
 import { getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
+import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
 function generateAutoSku(categoryId?: string, categoriesList: any[] = []): string {
   const cat = categoriesList.find((c) => c.id === categoryId);
@@ -52,6 +53,8 @@ export const ProductEditPage: React.FC = () => {
   const [showCustomSlug, setShowCustomSlug] = useState(false);
   const [showCustomSku, setShowCustomSku] = useState(false);
   const [isSkuCustomized, setIsSkuCustomized] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -330,6 +333,29 @@ export const ProductEditPage: React.FC = () => {
     }
   };
 
+  const executeDeleteProduct = async () => {
+    if (!id || id === 'new') return;
+    setIsDeleting(true);
+    try {
+      const res = await api.deleteProduct(id);
+      if (res.success) {
+        success('Product Deleted', `"${form.name}" was permanently removed.`);
+        navigate('/admin/products');
+      } else {
+        throw new Error(res.message || 'Deletion failed');
+      }
+    } catch (err: any) {
+      error('Delete Error', err.message || 'Failed to delete product');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+    }
+  };
+
+  const handleDeleteProduct = () => {
+    setIsDeleteModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="p-12 text-center text-xs text-charcoal uppercase tracking-editorial">
@@ -348,13 +374,25 @@ export const ProductEditPage: React.FC = () => {
         <span>Back to Product List</span>
       </Link>
 
-      <div className="border-b border-stone pb-4">
-        <h1 className="font-serif text-2xl sm:text-3xl text-espresso-900 font-medium">
-          {isEditing ? `Edit Creation: ${form.name}` : 'New Catalog Creation'}
-        </h1>
-        <p className="text-xs text-charcoal tracking-editorial uppercase mt-0.5">
-          Configure horology, fine gems, extraits, or gift suites
-        </p>
+      <div className="border-b border-stone pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-2xl sm:text-3xl text-espresso-900 font-medium">
+            {isEditing ? `Edit Creation: ${form.name}` : 'New Catalog Creation'}
+          </h1>
+          <p className="text-xs text-charcoal tracking-editorial uppercase mt-0.5">
+            Configure horology, fine gems, extraits, or gift suites
+          </p>
+        </div>
+        {isEditing && (
+          <button
+            type="button"
+            onClick={handleDeleteProduct}
+            className="px-4 py-2 border border-red-200 text-red-700 hover:bg-red-50 text-xs uppercase tracking-editorial font-semibold transition-colors flex items-center space-x-1.5 self-start sm:self-auto"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Creation</span>
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -913,24 +951,49 @@ export const ProductEditPage: React.FC = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={() => navigate('/admin/products')}
-            className="px-6 py-3 border border-stone text-xs uppercase tracking-editorial hover:bg-white"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-8 py-3 bg-espresso-900 hover:bg-espresso-800 disabled:opacity-50 text-ivory-100 text-xs uppercase tracking-editorial font-semibold transition-colors flex items-center space-x-2"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Preserving...' : 'Save Creation'}</span>
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-stone">
+          <div>
+            {isEditing && (
+              <button
+                type="button"
+                onClick={handleDeleteProduct}
+                className="px-6 py-3 border border-red-200 text-red-700 hover:bg-red-50 text-xs uppercase tracking-editorial font-semibold transition-colors flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Permanently</span>
+              </button>
+            )}
+          </div>
+          <div className="flex items-center space-x-4 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/products')}
+              className="px-6 py-3 border border-stone text-xs uppercase tracking-editorial hover:bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-8 py-3 bg-espresso-900 hover:bg-espresso-800 disabled:opacity-50 text-ivory-100 text-xs uppercase tracking-editorial font-semibold transition-colors flex items-center space-x-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSaving ? 'Preserving...' : 'Save Creation'}</span>
+            </button>
+          </div>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Creation Permanently"
+        message={`Are you sure you want to permanently delete "${form.name}" from the database? This action is instant and cannot be undone.`}
+        confirmLabel="Delete Creation"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={executeDeleteProduct}
+        onCancel={() => setIsDeleteModalOpen(false)}
+      />
     </div>
   );
 };

@@ -14,6 +14,7 @@ import {
   Clock,
   X,
 } from 'lucide-react';
+import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
 export const PaymentVerificationPage: React.FC = () => {
   const [queue, setQueue] = useState<any[]>([]);
@@ -25,6 +26,7 @@ export const PaymentVerificationPage: React.FC = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [approveConfirmSubmission, setApproveConfirmSubmission] = useState<any>(null);
 
   const loadQueue = async () => {
     setIsLoading(true);
@@ -44,11 +46,14 @@ export const PaymentVerificationPage: React.FC = () => {
     loadQueue();
   }, []);
 
-  const handleApprove = async (submission: any) => {
-    if (!window.confirm(`Confirm receipt of ${formatPrice(submission.submittedAmount || submission.order?.totalAmount)} in Magnificent bank ledger for order ${submission.order?.orderNumber}?`)) {
-      return;
-    }
+  const handleApprove = (submission: any) => {
+    setApproveConfirmSubmission(submission);
+  };
 
+  const executeApprove = async () => {
+    if (!approveConfirmSubmission) return;
+    const submission = approveConfirmSubmission;
+    setApproveConfirmSubmission(null);
     setIsProcessing(true);
     try {
       const res = await api.verifyPayment({
@@ -340,6 +345,26 @@ export const PaymentVerificationPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(approveConfirmSubmission)}
+        title="Confirm Irrevocable Bank Settlement"
+        message={`Confirm receipt of ${
+          approveConfirmSubmission
+            ? formatPrice(
+                approveConfirmSubmission.submittedAmount ||
+                  approveConfirmSubmission.order?.totalAmount
+              )
+            : ''
+        } in MagnifiScent corporate bank ledger for Order #${
+          approveConfirmSubmission?.order?.orderNumber
+        }? Once confirmed, the client's order status will update to Paid and Paid allocation will clear.`}
+        confirmLabel="Approve & Mark Paid"
+        variant="primary"
+        isLoading={isProcessing}
+        onConfirm={executeApprove}
+        onCancel={() => setApproveConfirmSubmission(null)}
+      />
     </div>
   );
 };

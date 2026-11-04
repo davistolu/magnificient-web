@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   FileCheck2,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -68,6 +69,7 @@ export const AdminLayout: React.FC = () => {
     { label: 'Products', href: '/admin/products', icon: Package },
     { label: 'Inventory', href: '/admin/inventory', icon: Layers },
     { label: 'Customers', href: '/admin/customers', icon: Users },
+    { label: 'Concierge Team', href: '/admin/team', icon: ShieldCheck },
     { label: 'Discounts', href: '/admin/discounts', icon: Tag },
     { label: 'Store Settings', href: '/admin/settings', icon: Settings },
     { label: 'Audit Trail', href: '/admin/audit', icon: ShieldAlert },
@@ -221,38 +223,82 @@ export const AdminLayout: React.FC = () => {
       {/* Mobile Sidebar overlay */}
       {mobileSidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-espresso-900/60" onClick={() => setMobileSidebarOpen(false)} />
-          <div className="relative w-64 bg-espresso-900 text-ivory-100 flex flex-col z-10">
-            <div className="p-4 border-b border-espresso-800 flex justify-between items-center">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-ivory-100 p-0.5 border border-champagne/40 overflow-hidden shrink-0 flex items-center justify-center">
-                  <img src="/logo.jpg" alt="MagnifiScent" className="w-full h-full object-cover" />
+          <div
+            className="fixed inset-0 bg-espresso-950/70 backdrop-blur-sm transition-opacity animate-in fade-in"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <div className="relative w-72 max-w-[85vw] bg-espresso-900 text-ivory-100 flex flex-col justify-between z-10 shadow-2xl border-r border-espresso-800 animate-in slide-in-from-left duration-200">
+            <div>
+              <div className="p-4 border-b border-espresso-800 flex justify-between items-center bg-espresso-950/40">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-full bg-ivory-100 p-0.5 border border-champagne/40 overflow-hidden shrink-0 flex items-center justify-center">
+                    <img src="/logo.jpg" alt="MagnifiScent" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <span className="font-serif text-base tracking-widest text-ivory-100 block leading-tight">
+                      Magnifi<span className="text-champagne font-semibold">Scent</span>
+                    </span>
+                    <span className="block text-[8px] tracking-[0.2em] text-champagne uppercase font-mono">
+                      Operations Desk
+                    </span>
+                  </div>
                 </div>
-                <span className="font-serif text-lg tracking-widest text-ivory-100">
-                  Magnifi<span className="text-champagne font-semibold">Scent</span>
-                </span>
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="w-8 h-8 rounded-full bg-espresso-800 hover:bg-espresso-700 flex items-center justify-center text-stone-muted hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => setMobileSidebarOpen(false)} className="text-stone-muted">
-                <X className="w-5 h-5" />
+
+              <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-160px)]">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setMobileSidebarOpen(false)}
+                      className={`flex items-center justify-between px-3 py-2.5 text-xs font-medium rounded-sm transition-colors ${
+                        active
+                          ? 'bg-espresso-800 text-ivory-100 border-l-2 border-champagne'
+                          : 'text-stone-muted hover:text-white hover:bg-espresso-800/50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Icon className={`w-4 h-4 ${active ? 'text-champagne' : 'text-stone-muted'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="bg-champagne text-espresso-900 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Mobile User Bar */}
+            <div className="p-4 border-t border-espresso-800 bg-espresso-950/60 flex items-center justify-between">
+              <div className="truncate">
+                <p className="text-xs font-semibold text-ivory-100 truncate">{user?.fullName}</p>
+                <p className="text-[10px] text-stone-muted font-mono uppercase">{user?.role}</p>
+              </div>
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileSidebarOpen(false);
+                  navigate('/admin/login');
+                }}
+                className="p-2 text-stone-muted hover:text-white hover:bg-espresso-800 rounded transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
-            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 text-xs font-medium text-stone-muted hover:text-white"
-                >
-                  <span>{item.label}</span>
-                  {item.badge && (
-                    <span className="bg-champagne text-espresso-900 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </nav>
           </div>
         </div>
       )}

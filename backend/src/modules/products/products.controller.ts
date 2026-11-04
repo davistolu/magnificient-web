@@ -357,6 +357,32 @@ export async function archiveProduct(req: Request, res: Response) {
   });
 }
 
+export async function deleteProduct(req: Request, res: Response) {
+  const { id } = req.params;
+  const product = store.products.find((p) => p.id === id);
+  if (!product) {
+    throw new AppError('Product not found', 404);
+  }
+
+  await store.deleteProduct(id);
+
+  store.saveAuditLog({
+    id: `aud-${Date.now()}`,
+    actorId: req.user?.id || 'admin',
+    actorName: req.user?.fullName || 'Admin',
+    action: 'product_delete',
+    resourceType: 'product',
+    resourceId: id,
+    metadata: { name: product.name, sku: product.sku },
+    createdAt: new Date(),
+  });
+
+  return res.json({
+    success: true,
+    message: `Product "${product.name}" permanently deleted from catalog`,
+  });
+}
+
 export async function uploadProductImage(req: Request, res: Response) {
   if (!req.file) {
     throw new AppError('No media file uploaded', 400);
