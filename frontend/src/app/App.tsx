@@ -15,6 +15,8 @@ import { AboutPage } from '../pages/storefront/AboutPage.js';
 import { ContactPage } from '../pages/storefront/ContactPage.js';
 import { FaqPage } from '../pages/storefront/FaqPage.js';
 import { PoliciesPage } from '../pages/storefront/PoliciesPage.js';
+import { TermsPage } from '../pages/storefront/TermsPage.js';
+import { PrivacyPage } from '../pages/storefront/PrivacyPage.js';
 import { CustomerLoginPage } from '../pages/storefront/CustomerLoginPage.js';
 import { CustomerRegisterPage } from '../pages/storefront/CustomerRegisterPage.js';
 import { CustomerAccountPage } from '../pages/storefront/CustomerAccountPage.js';
@@ -56,8 +58,10 @@ export const App: React.FC = () => {
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/shipping-policy" element={<PoliciesPage />} />
           <Route path="/returns-policy" element={<PoliciesPage />} />
-          <Route path="/privacy-policy" element={<PoliciesPage />} />
-          <Route path="/terms" element={<PoliciesPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/terms-and-conditions" element={<TermsPage />} />
           <Route path="/login" element={<CustomerLoginPage />} />
           <Route path="/register" element={<CustomerRegisterPage />} />
           <Route path="/account" element={<CustomerAccountPage />} />
