@@ -68,7 +68,8 @@ export const api = {
   getFeaturedProducts: () => request<any>('/products/featured'),
   createProduct: (payload: any) => request<any>('/products', { method: 'POST', body: JSON.stringify(payload) }),
   updateProduct: (id: string, payload: any) => request<any>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  archiveProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
+  archiveProduct: (id: string) => request<any>(`/products/${id}/archive`, { method: 'POST' }),
+  deleteProduct: (id: string) => request<any>(`/products/${id}`, { method: 'DELETE' }),
   uploadProductImage: (file: File) => {
     const formData = new FormData();
     formData.append('image', file);
@@ -125,6 +126,14 @@ export const api = {
   // Customers
   getCustomers: () => request<any>('/customers'),
   getCustomerDetails: (emailOrId: string) => request<any>(`/customers/${emailOrId}`),
+
+  // Admin Team Personnel
+  getTeamMembers: () => request<any>('/admin/team'),
+  createTeamMember: (payload: any) =>
+    request<any>('/admin/team', { method: 'POST', body: JSON.stringify(payload) }),
+  toggleTeamMemberStatus: (id: string, isActive: boolean) =>
+    request<any>(`/admin/team/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }),
+  deleteTeamMember: (id: string) => request<any>(`/admin/team/${id}`, { method: 'DELETE' }),
 
   // Settings
   getPublicSettings: () => request<any>('/settings/public'),

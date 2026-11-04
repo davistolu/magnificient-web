@@ -6,6 +6,7 @@ import {
   createProduct,
   updateProduct,
   archiveProduct,
+  deleteProduct,
   uploadProductImage,
 } from './products.controller.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
@@ -28,6 +29,7 @@ router.post(
 );
 router.post('/', requireAuth, requireRole(['admin']), asyncHandler(createProduct));
 router.put('/:id', requireAuth, requireRole(['admin']), asyncHandler(updateProduct));
-router.delete('/:id', requireAuth, requireRole(['admin']), asyncHandler(archiveProduct));
+router.post('/:id/archive', requireAuth, requireRole(['admin']), asyncHandler(archiveProduct));
+router.delete('/:id', requireAuth, requireRole(['admin']), asyncHandler(deleteProduct));
 
 export default router;

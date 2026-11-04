@@ -10,7 +10,7 @@ export async function seedDatabase(force = false) {
   store.seed(force);
 
   if (!pool) {
-    console.log('[Seed] No PostgreSQL connection available. Persistent SQLite engine active.');
+    console.log('[Seed] No PostgreSQL connection available.');
     return;
   }
 

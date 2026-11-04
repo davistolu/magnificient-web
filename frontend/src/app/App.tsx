@@ -34,6 +34,7 @@ import { CustomerListPage } from '../pages/admin/CustomerListPage.js';
 import { DiscountManagerPage } from '../pages/admin/DiscountManagerPage.js';
 import { StoreSettingsPage } from '../pages/admin/StoreSettingsPage.js';
 import { AuditLogPage } from '../pages/admin/AuditLogPage.js';
+import { AdminTeamPage } from '../pages/admin/AdminTeamPage.js';
 
 export const App: React.FC = () => {
   return (
@@ -82,6 +83,7 @@ export const App: React.FC = () => {
           <Route path="products/:id/edit" element={<ProductEditPage />} />
           <Route path="inventory" element={<InventoryManagerPage />} />
           <Route path="customers" element={<CustomerListPage />} />
+          <Route path="team" element={<AdminTeamPage />} />
           <Route path="discounts" element={<DiscountManagerPage />} />
           <Route path="settings" element={<StoreSettingsPage />} />
           <Route path="audit" element={<AuditLogPage />} />
