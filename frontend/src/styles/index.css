@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #F7F4EE;
+    color: #241C18;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(196, 167, 121, 0.3);
+    color: #15100E;
+  }
+}
+
+/* Custom delicate scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F7F4EE;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C4A779;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A68758;
+}
