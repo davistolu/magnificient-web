@@ -114,7 +114,7 @@ class StorageService {
     const response = await fetch(url, {
       method: 'PUT',
       headers,
-      body: buffer,
+      body: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength) as unknown as BodyInit,
     });
 
     if (!response.ok) {

@@ -13,7 +13,7 @@ export const PoliciesPage: React.FC = () => {
         sections: [
           {
             heading: '1. Courier & Insured Transit',
-            body: 'All Magnificent orders are transported in tamper-evident, discreet outer cartons. High-value horological pieces and diamond jewellery are accompanied by full transit insurance.',
+            body: 'All MagnifiScent orders are transported in tamper-evident, discreet outer cartons. High-value horological pieces and diamond jewellery are accompanied by full transit insurance.',
           },
           {
             heading: '2. Delivery Windows',
@@ -59,7 +59,7 @@ export const PoliciesPage: React.FC = () => {
           },
           {
             heading: '2. Confidentiality & Storage',
-            body: 'Payment receipts uploaded to Magnificent are stored in private, non-public storage directories accessible exclusively by authorized senior finance administrators.',
+            body: 'Payment receipts uploaded to MagnifiScent are stored in private, non-public storage directories accessible exclusively by authorized senior finance administrators.',
           },
           {
             heading: '3. Third-Party Sharing',
@@ -72,11 +72,11 @@ export const PoliciesPage: React.FC = () => {
     // Default: Terms & Conditions
     return {
       title: 'Terms & Conditions',
-      subtitle: 'The legal charter governing the Magnificent luxury retail experience.',
+      subtitle: 'The legal charter governing the MagnifiScent luxury retail experience.',
       sections: [
         {
           heading: '1. Order Formation & Payment Verification',
-          body: 'An order placed on Magnificent constitutes an offer to purchase. Contracts are finalized only upon independent verification of bank wire funds by our finance department.',
+          body: 'An order placed on MagnifiScent constitutes an offer to purchase. Contracts are finalized only upon independent verification of bank wire funds by our finance department.',
         },
         {
           heading: '2. Inventory Allocation',
@@ -84,7 +84,7 @@ export const PoliciesPage: React.FC = () => {
         },
         {
           heading: '3. Intellectual Property',
-          body: 'All designs, editorial photography, typography, and trade dress associated with Magnificent are the protected intellectual property of Magnificent Luxury Retail Ltd.',
+          body: 'All designs, editorial photography, typography, and trade dress associated with MagnifiScent are the protected intellectual property of MagnifiScent Luxury Retail Ltd.',
         },
       ],
     };
