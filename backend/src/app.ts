@@ -28,12 +28,15 @@ export function createApp() {
   const app = express();
 
   // Security Headers
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-      contentSecurityPolicy: false, // Managed per environment
-    })
-  );
+  const helmetMiddleware: any = (helmet as any).default || helmet;
+  if (typeof helmetMiddleware === 'function') {
+    app.use(
+      helmetMiddleware({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        contentSecurityPolicy: false, // Managed per environment
+      })
+    );
+  }
 
   // Dynamic CORS Configuration
   const configuredOrigins = (process.env.ALLOWED_ORIGINS || config.frontendUrl || '')
