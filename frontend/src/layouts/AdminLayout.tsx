@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,30 +32,49 @@ export const AdminLayout: React.FC = () => {
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate('/admin/login');
+    if (!isLoading && !isAdmin) {
+      navigate('/admin/login', { replace: true });
       return;
     }
 
-    async function loadAlerts() {
-      try {
-        const queueRes = await api.getVerificationQueue();
-        if (queueRes.success) {
-          setPendingPaymentsCount(queueRes.data.length);
-        }
+    if (isAdmin) {
+      async function loadAlerts() {
+        try {
+          const queueRes = await api.getVerificationQueue();
+          if (queueRes?.success && Array.isArray(queueRes.data)) {
+            setPendingPaymentsCount(queueRes.data.length);
+          }
 
-        const notifRes = await api.getNotifications();
-        if (notifRes.success) {
-          setNotifications(notifRes.data);
+          const notifRes = await api.getNotifications();
+          if (notifRes?.success && Array.isArray(notifRes.data)) {
+            setNotifications(notifRes.data);
+          }
+        } catch (err) {
+          console.error(err);
         }
-      } catch (err) {
-        console.error(err);
       }
+      loadAlerts();
+      const interval = setInterval(loadAlerts, 15000);
+      return () => clearInterval(interval);
     }
-    loadAlerts();
-    const interval = setInterval(loadAlerts, 15000);
-    return () => clearInterval(interval);
-  }, [isAdmin, navigate]);
+  }, [isAdmin, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-espresso-900 flex flex-col items-center justify-center p-4">
+        <div className="w-14 h-14 rounded-full bg-ivory-100 p-1 border border-champagne/60 shadow-xl flex items-center justify-center overflow-hidden animate-pulse mb-4">
+          <img src="/logo.jpg" alt="MagnifiScent" className="w-full h-full object-cover" />
+        </div>
+        <p className="text-champagne font-serif text-xs tracking-[0.25em] uppercase animate-pulse">
+          Authenticating Concierge...
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   const navItems = [
     { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },

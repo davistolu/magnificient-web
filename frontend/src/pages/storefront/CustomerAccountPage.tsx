@@ -21,33 +21,35 @@ import { useAuth } from '../../context/AuthContext.js';
 import { formatPrice, formatDateTime, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 
 export const CustomerAccountPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       navigate('/login');
       return;
     }
 
-    async function loadOrders() {
-      try {
-        const res = await api.getMyOrders();
-        if (res.success && Array.isArray(res.data)) {
-          setOrders(res.data);
+    if (user) {
+      async function loadOrders() {
+        try {
+          const res = await api.getMyOrders();
+          if (res.success && Array.isArray(res.data)) {
+            setOrders(res.data);
+          }
+        } catch (err) {
+          console.error('Error loading client orders:', err);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.error('Error loading client orders:', err);
-      } finally {
-        setIsLoading(false);
       }
-    }
 
-    loadOrders();
-  }, [user, navigate]);
+      loadOrders();
+    }
+  }, [user, authLoading, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -88,6 +90,15 @@ export const CustomerAccountPage: React.FC = () => {
         return <span className="text-[11px] font-semibold text-charcoal flex items-center space-x-1"><CreditCard className="w-3.5 h-3.5" /><span>Transfer Pending</span></span>;
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-8">
+        <div className="w-8 h-8 border-2 border-espresso-900 border-t-champagne rounded-full animate-spin mb-3" />
+        <p className="text-xs uppercase tracking-editorial text-charcoal">Loading Client Sanctuary...</p>
+      </div>
+    );
+  }
 
   if (!user) return null;
 

@@ -21,42 +21,77 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('mag_auth_token'));
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('mag_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Start with loading true only if we have a token but haven't loaded the user from cache yet
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    const hasToken = Boolean(localStorage.getItem('mag_auth_token'));
+    const hasUser = Boolean(localStorage.getItem('mag_auth_user'));
+    return hasToken && !hasUser;
+  });
 
   useEffect(() => {
+    let isMounted = true;
+
     async function checkAuth() {
       if (!token) {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
         return;
       }
+
       try {
         const res = await api.getMe();
-        if (res.success && res.user) {
-          setUser(res.user);
-        } else {
-          logout();
+        if (isMounted) {
+          if (res?.success && res?.user) {
+            setUser(res.user);
+            localStorage.setItem('mag_auth_user', JSON.stringify(res.user));
+          } else {
+            logout();
+          }
         }
-      } catch {
-        logout();
+      } catch (err: any) {
+        // Only invalidate session if the backend explicitly rejected the token with 401 Unauthorized
+        if (err?.status === 401) {
+          if (isMounted) {
+            logout();
+          }
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
+
     checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('mag_auth_token', newToken);
+    localStorage.setItem('mag_auth_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    setIsLoading(false);
   };
 
   const logout = () => {
     localStorage.removeItem('mag_auth_token');
+    localStorage.removeItem('mag_auth_user');
     setToken(null);
     setUser(null);
+    setIsLoading(false);
   };
 
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';

@@ -77,6 +77,16 @@ export async function login(req: Request, res: Response) {
     throw new AppError('Invalid email or password credentials', 401);
   }
 
+  // Ensure user is immediately present in memory store
+  const existingIdx = store.users.findIndex(
+    (u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase()
+  );
+  if (existingIdx >= 0) {
+    store.users[existingIdx] = { ...store.users[existingIdx], ...user };
+  } else {
+    store.users.push(user);
+  }
+
   const token = jwt.sign(
     {
       id: user.id,
@@ -157,19 +167,48 @@ export async function me(req: Request, res: Response) {
     throw new AppError('Unauthorized', 401);
   }
 
-  const user = store.users.find((u) => u.id === req.user?.id);
-  if (!user) {
-    throw new AppError('User not found', 404);
+  let user = store.users.find(
+    (u) =>
+      u.id === req.user?.id ||
+      (req.user?.email && u.email?.toLowerCase() === req.user.email.toLowerCase())
+  );
+
+  if (!user && pool) {
+    try {
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          `SELECT id, full_name as "fullName", email, phone, role, is_active as "isActive"
+           FROM users
+           WHERE (id::text = $1 OR LOWER(email) = LOWER($2)) AND is_active = true
+           LIMIT 1`,
+          [req.user.id, req.user.email || '']
+        );
+        if (result.rows.length > 0) {
+          user = {
+            ...result.rows[0],
+            isActive: Boolean(result.rows[0].isActive),
+          };
+          store.users.push(user);
+        }
+      } finally {
+        client.release();
+      }
+    } catch (dbErr) {
+      console.warn('[Auth me] PostgreSQL lookup warning:', (dbErr as Error).message);
+    }
   }
+
+  const activeUser = user || req.user;
 
   return res.json({
     success: true,
     user: {
-      id: user.id,
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
+      id: activeUser.id,
+      fullName: activeUser.fullName,
+      email: activeUser.email,
+      phone: activeUser.phone,
+      role: activeUser.role,
     },
   });
 }
