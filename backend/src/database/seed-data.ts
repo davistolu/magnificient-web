@@ -2,8 +2,8 @@ import { DEFAULT_STORE_SETTINGS } from '../shared/index.js';
 
 export const INITIAL_ADMIN = {
   fullName: 'MagnifiScent Lead Concierge',
-  email: 'admin@magnifiscent.luxury',
-  password: 'MagnifiScentAdmin2026!',
+  email: process.env.INITIAL_ADMIN_EMAIL || 'admin@magnifiscent.site',
+  password: process.env.INITIAL_ADMIN_PASSWORD || 'MagnifiScentAdmin2026!',
   phone: '+2348011223344',
   role: 'admin',
 };

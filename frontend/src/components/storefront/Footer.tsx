@@ -82,7 +82,7 @@ export const Footer: React.FC = () => {
             <Link to="/" className="inline-flex items-center space-x-3.5 group">
               <div className="w-12 h-12 rounded-sm bg-ivory-100 p-1 flex items-center justify-center border border-champagne/40 shadow-sm shrink-0">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="MagnifiScent"
                   className="w-full h-full object-contain"
                 />

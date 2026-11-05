@@ -63,7 +63,7 @@ export const AdminLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-espresso-900 flex flex-col items-center justify-center p-4">
         <div className="w-14 h-14 rounded-full bg-ivory-100 p-1 border border-champagne/60 shadow-xl flex items-center justify-center overflow-hidden animate-pulse mb-4">
-          <img src="/logo.jpg" alt="MagnifiScent" className="w-full h-full object-cover" />
+          <img src="/logo.png" alt="MagnifiScent" className="w-full h-full object-contain p-1" />
         </div>
         <p className="text-champagne font-serif text-xs tracking-[0.25em] uppercase animate-pulse">
           Authenticating Concierge...
@@ -104,9 +104,9 @@ export const AdminLayout: React.FC = () => {
           <Link to="/admin/dashboard" className="flex items-center space-x-3 group">
             <div className="w-10 h-10 rounded-full bg-ivory-100 p-0.5 border border-champagne/40 overflow-hidden shrink-0 flex items-center justify-center">
               <img
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="MagnifiScent"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-0.5"
               />
             </div>
             <div>
@@ -251,7 +251,7 @@ export const AdminLayout: React.FC = () => {
               <div className="p-4 border-b border-espresso-800 flex justify-between items-center bg-espresso-950/40">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-8 h-8 rounded-full bg-ivory-100 p-0.5 border border-champagne/40 overflow-hidden shrink-0 flex items-center justify-center">
-                    <img src="/logo.jpg" alt="MagnifiScent" className="w-full h-full object-cover" />
+                    <img src="/logo.png" alt="MagnifiScent" className="w-full h-full object-contain p-0.5" />
                   </div>
                   <div>
                     <span className="font-serif text-base tracking-widest text-ivory-100 block leading-tight">

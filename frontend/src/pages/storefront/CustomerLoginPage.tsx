@@ -52,9 +52,9 @@ export const CustomerLoginPage: React.FC = () => {
           <div className="flex justify-center">
             <div className="w-16 h-16 rounded-full bg-ivory-100 p-1 border border-champagne/60 shadow-sm flex items-center justify-center overflow-hidden">
               <img
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="MagnifiScent"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-1"
               />
             </div>
           </div>
@@ -86,7 +86,7 @@ export const CustomerLoginPage: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="client@domain.luxury"
+                placeholder="client@magnifiscent.site"
                 className="w-full bg-ivory-50 border border-stone pl-9 pr-3.5 py-2.5 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 transition-colors"
               />
             </div>

@@ -6,8 +6,8 @@ import { useToast } from '../../context/ToastContext.js';
 import { Lock, Mail, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 export const AdminLoginPage: React.FC = () => {
-  const [email, setEmail] = useState('admin@magnifiscent.luxury');
-  const [password, setPassword] = useState('MagnifiScentAdmin2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -48,9 +48,9 @@ export const AdminLoginPage: React.FC = () => {
           <div className="flex justify-center">
             <div className="w-16 h-16 rounded-full bg-ivory-100 p-1 border border-champagne/60 shadow-md flex items-center justify-center overflow-hidden">
               <img
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="MagnifiScent Logo"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-1"
               />
             </div>
           </div>
@@ -131,8 +131,8 @@ export const AdminLoginPage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-champagne-dark" />
             <span>Role-Based Access Protected</span>
           </div>
-          <p className="text-[10px] text-stone-muted font-mono">
-            Demo Credentials Pre-filled: admin@magnificent.luxury
+          <p className="text-[10px] text-stone-muted font-mono uppercase tracking-wider">
+            Authorized Personnel Portal &bull; MagnifiScent Concierge
           </p>
         </div>
       </div>

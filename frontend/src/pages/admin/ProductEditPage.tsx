@@ -180,8 +180,8 @@ export const ProductEditPage: React.FC = () => {
     success('New SKU Generated', `Assigned ${newSku}`);
   };
 
-  const storeBase = (import.meta.env.VITE_STORE_URL as string)?.replace(/\/+$/, '') || (typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.luxury');
-  const shareableUrl = `${storeBase}/product/${form.slug || 'piece-slug'}`;
+  const storeBase = (import.meta.env.VITE_STORE_URL as string)?.replace(/\/+$/, '') || (typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.site');
+  const shareableUrl = `${storeBase}/products/${form.slug || 'piece-slug'}`;
 
   const handleCopyShareableLink = async () => {
     try {

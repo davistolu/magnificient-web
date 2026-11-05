@@ -335,7 +335,7 @@ export const AdminTeamPage: React.FC = () => {
                   <input
                     type="email"
                     required
-                    placeholder="e.g. concierge@magnifiscent.luxury"
+                    placeholder="e.g. concierge@magnifiscent.site"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     className="w-full bg-ivory-50 border border-stone pl-9 pr-3 py-2 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 font-mono"

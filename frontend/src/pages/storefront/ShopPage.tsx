@@ -3,6 +3,7 @@ import { useSearchParams, useParams, Link } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { ProductCard } from '../../components/storefront/ProductCard.js';
 import { SlidersHorizontal, ChevronRight, X, RotateCcw } from 'lucide-react';
+import { SEO } from '../../components/common/SEO.js';
 
 interface ShopPageProps {
   categorySlug?: string;
@@ -111,13 +112,74 @@ export const ShopPage: React.FC<ShopPageProps> = ({ categorySlug: propCategorySl
 
   const getPageSubtitle = () => {
     if (currentCategory?.description) return currentCategory.description;
-    return 'Explore the Magnificent catalog of chronographs, gold jewels, bespoke extraits, and gift suites.';
+    return 'Explore the MagnifiScent catalog of chronographs, gold jewels, bespoke extraits, and gift suites.';
+  };
+
+  const getCategorySeo = () => {
+    switch (currentCategorySlug) {
+      case 'watches':
+        return {
+          title: 'Mechanical Watches & Swiss Chronographs | MagnifiScent Luxury',
+          description:
+            'Explore handcrafted luxury wristwatches, Swiss chronographs, and mechanical movements curated for distinguished collectors at MagnifiScent.',
+          canonical: 'https://magnifiscent.site/watches',
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Watches', url: '/watches' },
+          ],
+        };
+      case 'jewellery':
+        return {
+          title: 'Fine Jewellery & Haute Joaillerie | MagnifiScent Luxury',
+          description:
+            'Discover bespoke fine jewellery, handcrafted solid gold bands, diamond eternity rings, and rare gemstones at MagnifiScent.',
+          canonical: 'https://magnifiscent.site/jewellery',
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Fine Jewellery', url: '/jewellery' },
+          ],
+        };
+      case 'perfumes':
+        return {
+          title: 'Artisanal Perfumes & Extraits de Parfum | MagnifiScent Luxury',
+          description:
+            'Discover rare niche fragrances, pure perfume extraits, precious oud, and amber formulations designed for enduring luxury sillage.',
+          canonical: 'https://magnifiscent.site/perfumes',
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Artisanal Perfumes', url: '/perfumes' },
+          ],
+        };
+      case 'gift-sets':
+        return {
+          title: 'Luxury Gift Sets & Curated Suites | MagnifiScent Luxury',
+          description:
+            'Curated luxury gift edits, anniversary presentations, executive boxes, and celebratory pairings curated by the MagnifiScent atelier.',
+          canonical: 'https://magnifiscent.site/gift-sets',
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Gift Sets', url: '/gift-sets' },
+          ],
+        };
+      default:
+        return {
+          title: 'The Curated Collection | MagnifiScent Luxury',
+          description:
+            'Browse our full portfolio of Swiss mechanical wristwatches, fine jewellery, artisanal perfumes, and luxury gift suites.',
+          canonical: 'https://magnifiscent.site/shop',
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Collection', url: '/shop' },
+          ],
+        };
+    }
   };
 
   const hasActiveFilters = Boolean(minPrice || maxPrice || occasion || gender);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+      <SEO {...getCategorySeo()} />
       {/* Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-[11px] uppercase tracking-editorial text-charcoal/70 mb-6 font-mono">
         <Link to="/" className="hover:text-espresso-900 transition-colors">
