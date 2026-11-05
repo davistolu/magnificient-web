@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { store } from '../../database/index.js';
 import { DEFAULT_STORE_SETTINGS } from '../../shared/index.js';
 
@@ -40,10 +41,10 @@ export async function updateAdminSettings(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  store.storeSettings.set('general', newSettings);
+  await store.saveStoreSetting('general', newSettings);
 
-  store.auditLogs.push({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'settings_update',

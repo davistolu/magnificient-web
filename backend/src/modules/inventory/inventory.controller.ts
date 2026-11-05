@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { stockAdjustmentSchema } from '../../shared/index.js';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -78,9 +79,10 @@ export async function adjustStock(req: Request, res: Response) {
 
   product.stockQuantity = newStock;
   product.updatedAt = new Date();
+  await store.saveProduct(product);
 
   const movement = {
-    id: `inv-${Date.now()}`,
+    id: crypto.randomUUID(),
     productId: product.id,
     productName: product.name,
     quantityChange: validated.quantityChange,
@@ -91,10 +93,10 @@ export async function adjustStock(req: Request, res: Response) {
     createdAt: new Date(),
   };
 
-  store.saveInventoryMovement(movement);
+  await store.saveInventoryMovement(movement);
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'inventory_adjust',

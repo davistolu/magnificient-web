@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 
@@ -65,7 +66,7 @@ export async function createDiscount(req: Request, res: Response) {
   }
 
   const newDiscount = {
-    id: `disc-${Date.now()}`,
+    id: crypto.randomUUID(),
     code: code.trim().toUpperCase(),
     discountType,
     discountValue: Number(discountValue),
@@ -76,7 +77,7 @@ export async function createDiscount(req: Request, res: Response) {
     createdAt: new Date(),
   };
 
-  store.discounts.push(newDiscount);
+  await store.saveDiscount(newDiscount);
 
   return res.status(201).json({
     success: true,
@@ -92,6 +93,7 @@ export async function toggleDiscountStatus(req: Request, res: Response) {
   }
 
   discount.isActive = !discount.isActive;
+  await store.saveDiscount(discount);
 
   return res.json({
     success: true,
