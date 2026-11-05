@@ -75,7 +75,7 @@ export const GIFT_OCCASIONS = [
 export const DEFAULT_STORE_SETTINGS = {
   store_name: 'MagnifiScent',
   tagline: 'Made to Be Remembered',
-  support_email: 'concierge@magnifiscent.luxury',
+  support_email: 'concierge@magnifiscent.site',
   whatsapp_number: '+2348000000000',
   whatsapp_enabled: true,
   currency: 'NGN',

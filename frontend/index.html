@@ -2,11 +2,134 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="/logo.jpg" />
-    <link rel="apple-touch-icon" href="/logo.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MagnifiScent | Haute Horlogerie, Fine Jewellery & Artisanal Fragrances</title>
-    <meta name="description" content="Discover horology, fine jewellery, artisanal perfumes, and bespoke gift edits. MagnifiScent — Made to Be Remembered." />
+    <title>MagnifiScent | Haute Horlogerie, Fine Jewellery &amp; Artisanal Fragrances</title>
+    <meta name="description" content="Discover exceptional Swiss horology, handcrafted fine jewellery, artisanal perfumes, and bespoke gift edits. MagnifiScent — Made to Be Remembered." />
+    <meta name="keywords" content="luxury watches, fine jewellery, artisanal perfumes, extraits de parfum, luxury gift sets, horology Nigeria, haute joaillerie, MagnifiScent, bespoke luxury fragrance, luxury concierge" />
+    <link rel="canonical" href="https://magnifiscent.site/" />
+
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#171412" />
+
+    <!-- Open Graph (Facebook / WhatsApp / LinkedIn / iMessage) -->
+    <meta property="og:site_name" content="MagnifiScent" />
+    <meta property="og:title" content="MagnifiScent | Haute Horlogerie, Fine Jewellery &amp; Artisanal Fragrances" />
+    <meta property="og:description" content="Discover exceptional Swiss horology, handcrafted fine jewellery, artisanal perfumes, and bespoke gift edits. MagnifiScent — Made to Be Remembered." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://magnifiscent.site/" />
+    <meta property="og:image" content="https://magnifiscent.site/logo.png" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MagnifiScent | Haute Horlogerie, Fine Jewellery &amp; Artisanal Fragrances" />
+    <meta name="twitter:description" content="Discover exceptional Swiss horology, handcrafted fine jewellery, artisanal perfumes, and bespoke gift edits. MagnifiScent — Made to Be Remembered." />
+    <meta name="twitter:image" content="https://magnifiscent.site/logo.png" />
+
+    <!-- Google Structured Data (Sitelinks, Searchbox, Category Sitelinks & Brand Organization) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://magnifiscent.site/#website",
+          "url": "https://magnifiscent.site/",
+          "name": "MagnifiScent",
+          "alternateName": ["MagnifiScent Luxury", "Magnificent Luxury"],
+          "description": "Purveyors of Haute Horlogerie, Fine Jewellery & Artisanal Fragrances",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://magnifiscent.site/shop?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://magnifiscent.site/#organization",
+          "name": "MagnifiScent",
+          "url": "https://magnifiscent.site/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://magnifiscent.site/logo.png",
+            "width": 500,
+            "height": 500
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+2348000000000",
+            "contactType": "customer service",
+            "areaServed": "Global",
+            "availableLanguage": ["English", "French"]
+          }
+        },
+        {
+          "@type": "ItemList",
+          "@id": "https://magnifiscent.site/#sitelinks",
+          "name": "MagnifiScent Luxury Collections",
+          "description": "Explore our curated ateliers of fine watches, bespoke jewellery, perfumes, and gift suites.",
+          "itemListElement": [
+            {
+              "@type": "SiteNavigationElement",
+              "position": 1,
+              "name": "Mechanical Watches & Chronographs",
+              "description": "Explore luxury horology, tourbillons, and chronographs.",
+              "url": "https://magnifiscent.site/watches"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 2,
+              "name": "Fine Jewellery & Bijoux",
+              "description": "Handcrafted gemstones, necklaces, bracelets, and rings.",
+              "url": "https://magnifiscent.site/jewellery"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 3,
+              "name": "Artisanal Fragrances & Extraits",
+              "description": "Niche perfumery, rare oud, amber, and bespoke extraits de parfum.",
+              "url": "https://magnifiscent.site/perfumes"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 4,
+              "name": "Luxury Gift Sets & Suites",
+              "description": "Curated celebratory edits and bespoke luxury presentation boxes.",
+              "url": "https://magnifiscent.site/gift-sets"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 5,
+              "name": "All Luxury Creations",
+              "description": "Browse the complete MagnifiScent catalog.",
+              "url": "https://magnifiscent.site/shop"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 6,
+              "name": "Concierge Order Tracking",
+              "description": "Track commission preparation and white-glove delivery.",
+              "url": "https://magnifiscent.site/track"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 7,
+              "name": "Atelier Heritage & Philosophy",
+              "description": "Learn about the craftsmanship and maison philosophy.",
+              "url": "https://magnifiscent.site/about"
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <!-- Google Fonts: Cormorant Garamond & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

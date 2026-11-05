@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageSquare, Mail, MapPin, Phone, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext.js';
+import { SEO } from '../../components/common/SEO.js';
 
 export const ContactPage: React.FC = () => {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', subject: 'Acquisition Inquiry' });
@@ -15,6 +16,15 @@ export const ContactPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 space-y-16">
+      <SEO
+        title="Concierge & Private Client Services | MagnifiScent Luxury"
+        description="Connect with our private luxury concierge desk for bespoke commissions, acquisitions, and horology inquiries."
+        canonical="https://magnifiscent.site/contact"
+        breadcrumbs={[
+          { name: 'Home', url: '/' },
+          { name: 'Contact Concierge', url: '/contact' },
+        ]}
+      />
       <div className="text-center max-w-xl mx-auto space-y-3">
         <span className="text-[10px] uppercase tracking-widest text-champagne-dark font-semibold font-mono">
           Private Client Services
@@ -59,7 +69,7 @@ export const ContactPage: React.FC = () => {
                 <p className="font-semibold text-espresso-900 uppercase tracking-editorial text-[11px]">
                   Electronic Mail
                 </p>
-                <p className="mt-0.5">concierge@magnifiscent.luxury</p>
+                <p className="mt-0.5">concierge@magnifiscent.site</p>
               </div>
             </div>
 

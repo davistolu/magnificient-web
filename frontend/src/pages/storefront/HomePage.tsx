@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, Clock, Award, MessageCircle, Gift } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { ProductCard } from '../../components/storefront/ProductCard.js';
+import { SEO } from '../../components/common/SEO.js';
 
 export const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
@@ -60,6 +61,12 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-24 sm:space-y-32 pb-24">
+      <SEO
+        title="MagnifiScent | Haute Horlogerie, Fine Jewellery & Artisanal Fragrances"
+        description="Discover horology, handcrafted fine jewellery, artisanal perfumes, and bespoke gift edits. MagnifiScent — Made to Be Remembered."
+        canonical="https://magnifiscent.site/"
+        ogImage="/logo.png"
+      />
       {/* 1. EDITORIAL HERO SECTION */}
       <section className="relative min-h-[85vh] flex items-center bg-espresso-900 text-ivory-100 overflow-hidden">
         {/* Background campaign photo */}

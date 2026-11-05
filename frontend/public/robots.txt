@@ -1,0 +1,27 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /watches
+Allow: /jewellery
+Allow: /perfumes
+Allow: /gift-sets
+Allow: /shop
+Allow: /products/
+Allow: /about
+Allow: /contact
+Allow: /faq
+Allow: /shipping-policy
+Allow: /returns-policy
+Allow: /privacy-policy
+Allow: /terms
+
+# Disallow internal operational and private checkout routes
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /payment-instructions/
+
+# Search Engine Sitemaps
+Sitemap: https://magnifiscent.site/sitemap.xml

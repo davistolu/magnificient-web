@@ -183,7 +183,7 @@ export const PrivacyPage: React.FC = () => {
           <div className="bg-ivory-50 border border-stone p-4 space-y-1 text-xs">
             <p className="font-semibold text-espresso-900">Data Protection Officer</p>
             <p className="text-charcoal">MagnifiScent Luxury Retail Ltd</p>
-            <p className="text-charcoal">Electronic Mail: <a href="mailto:concierge@magnifiscent.luxury" className="text-champagne-dark font-medium underline">concierge@magnifiscent.luxury</a></p>
+            <p className="text-charcoal">Electronic Mail: <a href="mailto:concierge@magnifiscent.site" className="text-champagne-dark font-medium underline">concierge@magnifiscent.site</a></p>
             <p className="text-charcoal">Private Client Salon: Victoria Island, Lagos, Nigeria</p>
           </div>
         </section>

@@ -17,6 +17,7 @@ import {
   Play,
   Film,
 } from 'lucide-react';
+import { SEO } from '../../components/common/SEO.js';
 
 export const ProductDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -125,8 +126,58 @@ export const ProductDetailPage: React.FC = () => {
 
   const specs = Object.entries(product.specifications || {});
 
+  const productImageUrl = product.images?.[0]?.imageUrl
+    ? getMediaUrl(product.images[0].imageUrl)
+    : 'https://magnifiscent.site/logo.png';
+
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.images?.map((img: any) => getMediaUrl(img.imageUrl)) || [productImageUrl],
+    description: product.shortDescription || product.description,
+    sku: product.sku,
+    brand: {
+      '@type': 'Brand',
+      name: product.brand || 'MagnifiScent',
+    },
+    offers: {
+      '@type': 'Offer',
+      url: `https://magnifiscent.site/products/${product.slug}`,
+      priceCurrency: 'NGN',
+      price: product.price,
+      itemCondition: 'https://schema.org/NewCondition',
+      availability:
+        product.stockQuantity > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+      seller: {
+        '@type': 'Organization',
+        name: 'MagnifiScent',
+      },
+    },
+  };
+
+  const breadcrumbs = [
+    { name: 'Home', url: '/' },
+    {
+      name: product.category?.name || 'Catalog',
+      url: product.category?.slug ? `/${product.category.slug}` : '/shop',
+    },
+    { name: product.name, url: `/products/${product.slug}` },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+      <SEO
+        title={`${product.name} | MagnifiScent Luxury`}
+        description={product.shortDescription || product.description}
+        canonical={`https://magnifiscent.site/products/${product.slug}`}
+        ogImage={productImageUrl}
+        ogType="product"
+        breadcrumbs={breadcrumbs}
+        jsonLd={productJsonLd}
+      />
       {/* Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-[11px] uppercase tracking-editorial text-charcoal/70 mb-8 font-mono">
         <Link to="/" className="hover:text-espresso-900 transition-colors">

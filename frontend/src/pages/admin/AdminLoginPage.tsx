@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useToast } from '../../context/ToastContext.js';
-import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 export const AdminLoginPage: React.FC = () => {
-  const [email, setEmail] = useState('admin@magnifiscent.luxury');
-  const [password, setPassword] = useState('MagnifiScentAdmin2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
@@ -47,9 +48,9 @@ export const AdminLoginPage: React.FC = () => {
           <div className="flex justify-center">
             <div className="w-16 h-16 rounded-full bg-ivory-100 p-1 border border-champagne/60 shadow-md flex items-center justify-center overflow-hidden">
               <img
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="MagnifiScent Logo"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-1"
               />
             </div>
           </div>
@@ -91,14 +92,27 @@ export const AdminLoginPage: React.FC = () => {
               Secret Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-3 pointer-events-none" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-ivory-50 border border-stone pl-9 pr-3.5 py-2.5 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900"
+                className="w-full bg-ivory-50 border border-stone pl-9 pr-10 py-2.5 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 font-sans"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 p-0.5 text-stone-muted hover:text-espresso-900 transition-colors focus:outline-none"
+                title={showPassword ? 'Hide password' : 'View password'}
+                aria-label={showPassword ? 'Hide password' : 'View password'}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -117,8 +131,8 @@ export const AdminLoginPage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-champagne-dark" />
             <span>Role-Based Access Protected</span>
           </div>
-          <p className="text-[10px] text-stone-muted font-mono">
-            Demo Credentials Pre-filled: admin@magnificent.luxury
+          <p className="text-[10px] text-stone-muted font-mono uppercase tracking-wider">
+            Authorized Personnel Portal &bull; MagnifiScent Concierge
           </p>
         </div>
       </div>

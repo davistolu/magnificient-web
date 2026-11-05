@@ -8,9 +8,9 @@ export async function getPublicSettings(req: Request, res: Response) {
   return res.json({
     success: true,
     data: {
-      storeName: settings.storeName || 'Magnificent',
+      storeName: settings.storeName || 'MagnifiScent',
       tagline: settings.tagline || 'Made to Be Remembered',
-      supportEmail: settings.supportEmail || 'concierge@magnificent.luxury',
+      supportEmail: settings.supportEmail || 'concierge@magnifiscent.site',
       whatsappNumber: settings.whatsappNumber || '+2348000000000',
       whatsappEnabled: settings.whatsappEnabled ?? true,
       currency: settings.currency || 'NGN',

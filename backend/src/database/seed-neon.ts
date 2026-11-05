@@ -1,8 +1,15 @@
+import 'dotenv/config';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import { INITIAL_ADMIN } from './seed-data.js';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_FJ3YxLfV4cHd@ep-snowy-king-bebstooe-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('[Neon Seed Error] DATABASE_URL environment variable is missing.');
+  console.error('Please configure DATABASE_URL in your .env file or deployment environment.');
+  process.exit(1);
+}
 
 const client = new pg.Client({
   connectionString,
@@ -217,18 +224,20 @@ async function main() {
     RETURNING id, full_name, email, phone, role, is_active, created_at;
   `, [INITIAL_ADMIN.fullName, INITIAL_ADMIN.email, INITIAL_ADMIN.phone, passwordHash, INITIAL_ADMIN.role]);
 
-  // Also seed legacy email alias so user can sign in with either spelling
-  await client.query(`
-    INSERT INTO users (full_name, email, phone, password_hash, role, is_active)
-    VALUES ($1, $2, $3, $4, $5, true)
-    ON CONFLICT (email) DO UPDATE SET
-      password_hash = EXCLUDED.password_hash,
-      full_name = EXCLUDED.full_name,
-      phone = EXCLUDED.phone,
-      role = EXCLUDED.role,
-      is_active = true,
-      updated_at = NOW()
-  `, [INITIAL_ADMIN.fullName, 'admin@magnificent.luxury', INITIAL_ADMIN.phone, passwordHash, INITIAL_ADMIN.role]);
+  // Also seed aliases so admin can sign in with either spelling or legacy domain
+  for (const aliasEmail of ['admin@magnificent.site', 'admin@magnificent.luxury']) {
+    await client.query(`
+      INSERT INTO users (full_name, email, phone, password_hash, role, is_active)
+      VALUES ($1, $2, $3, $4, $5, true)
+      ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        full_name = EXCLUDED.full_name,
+        phone = EXCLUDED.phone,
+        role = EXCLUDED.role,
+        is_active = true,
+        updated_at = NOW()
+    `, [INITIAL_ADMIN.fullName, aliasEmail, INITIAL_ADMIN.phone, passwordHash, INITIAL_ADMIN.role]);
+  }
 
   console.log('\n======================================================');
   console.log('✅ ADMIN CREDENTIALS SUCCESSFULLY SEEDED IN NEON:');

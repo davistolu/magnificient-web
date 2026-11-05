@@ -15,6 +15,7 @@ import {
   Building2,
   Play,
 } from 'lucide-react';
+import { SEO } from '../../components/common/SEO.js';
 
 const STATUS_STEPS = [
   { key: 'pending_payment', label: 'Order Placed' },
@@ -80,6 +81,15 @@ export const OrderTrackingPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-12">
+      <SEO
+        title="Track Your Acquisition & Order Status | MagnifiScent Concierge"
+        description="Verify real-time fulfillment status, wire payment verification, and dispatch progress for your MagnifiScent luxury order."
+        canonical="https://magnifiscent.site/track"
+        breadcrumbs={[
+          { name: 'Home', url: '/' },
+          { name: 'Track Order', url: '/track' },
+        ]}
+      />
       {/* Header */}
       <div className="text-center max-w-xl mx-auto space-y-2">
         <span className="text-[10px] uppercase tracking-widest text-charcoal/70 font-semibold font-mono">
