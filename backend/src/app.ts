@@ -165,6 +165,20 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.use('/uploads/products', express.static(config.storage.productsDir));
   app.use('/uploads', express.static(path.resolve('./uploads')));
 
+  // Ensure PostgreSQL DataStore is fully synchronized before any API request executes
+  app.use(async (req, res, next) => {
+    if (req.path === '/health' || req.path === '/robots.txt') {
+      return next();
+    }
+    try {
+      await store.ensureInitialized();
+      next();
+    } catch (err) {
+      console.error('[Store Sync Middleware Error]:', err);
+      next(err);
+    }
+  });
+
   // API Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/categories', categoryRoutes);

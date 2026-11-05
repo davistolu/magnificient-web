@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { INITIAL_CATEGORIES } from '../../database/seed-data.js';
@@ -63,7 +64,7 @@ export async function createCategory(req: Request, res: Response) {
   }
 
   const newCategory = {
-    id: `cat-${Date.now()}`,
+    id: crypto.randomUUID(),
     name,
     slug,
     description,

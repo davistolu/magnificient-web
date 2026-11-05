@@ -91,7 +91,7 @@ export async function processCheckout(req: Request, res: Response) {
   const randomSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
   const orderNumber = `MAG-${year}-${randomSuffix}`;
   const guestAccessToken = crypto.randomUUID();
-  const orderId = `ord-${Date.now()}-${randomSuffix}`;
+  const orderId = crypto.randomUUID();
 
   const matchingCustomer = req.user?.id
     ? store.users.find((u) => u.id === req.user?.id)
@@ -102,8 +102,8 @@ export async function processCheckout(req: Request, res: Response) {
   for (const item of validatedItems) {
     item.product.stockQuantity -= item.quantity;
 
-    store.saveInventoryMovement({
-      id: `inv-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+    await store.saveInventoryMovement({
+      id: crypto.randomUUID(),
       productId: item.product.id,
       productName: item.product.name,
       quantityChange: -item.quantity,
@@ -140,8 +140,8 @@ export async function processCheckout(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  const createdOrderItems = validatedItems.map((item, idx) => ({
-    id: `itm-${orderId}-${idx}`,
+  const createdOrderItems = validatedItems.map((item) => ({
+    id: crypto.randomUUID(),
     orderId,
     productId: item.product.id,
     productNameSnapshot: item.product.name,
@@ -154,11 +154,11 @@ export async function processCheckout(req: Request, res: Response) {
     createdAt: new Date(),
   }));
 
-  store.saveOrder(newOrder, createdOrderItems);
+  await store.saveOrder(newOrder, createdOrderItems);
 
   // 7. Record Order Status History
-  store.saveOrderStatusHistory({
-    id: `osh-${Date.now()}`,
+  await store.saveOrderStatusHistory({
+    id: crypto.randomUUID(),
     orderId,
     previousStatus: null,
     newStatus: 'pending_payment',
@@ -168,8 +168,8 @@ export async function processCheckout(req: Request, res: Response) {
   });
 
   // 8. In-App Notification for Store Admin
-  store.notifications.push({
-    id: `notif-${Date.now()}`,
+  await store.saveNotification({
+    id: crypto.randomUUID(),
     recipientRole: 'admin',
     title: `New Luxury Order Placed: ${orderNumber}`,
     message: `${validated.customerName} placed order ${orderNumber} for ₦${totalAmount.toLocaleString()} (${validated.paymentMethod})`,

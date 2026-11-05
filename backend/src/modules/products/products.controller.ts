@@ -267,11 +267,11 @@ export async function createProduct(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  store.saveProduct(newProduct, validated.images);
+  await store.saveProduct(newProduct, validated.images);
 
   // Record initial inventory movement
-  store.saveInventoryMovement({
-    id: `inv-${Date.now()}`,
+  await store.saveInventoryMovement({
+    id: crypto.randomUUID(),
     productId,
     productName: validated.name,
     quantityChange: validated.stockQuantity,
@@ -283,8 +283,8 @@ export async function createProduct(req: Request, res: Response) {
   });
 
   // Log audit
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'product_create',
@@ -329,10 +329,10 @@ export async function updateProduct(req: Request, res: Response) {
   };
 
   const imagesToSave = Array.isArray(updates.images) ? updates.images : store.productImages.filter((img) => img.productId === id);
-  store.saveProduct(updatedProduct, imagesToSave);
+  await store.saveProduct(updatedProduct, imagesToSave);
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'product_update',
@@ -357,7 +357,7 @@ export async function archiveProduct(req: Request, res: Response) {
 
   product.status = 'archived';
   product.updatedAt = new Date();
-  store.saveProduct(product);
+  await store.saveProduct(product);
 
   return res.json({
     success: true,
@@ -374,8 +374,8 @@ export async function deleteProduct(req: Request, res: Response) {
 
   await store.deleteProduct(id);
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'product_delete',

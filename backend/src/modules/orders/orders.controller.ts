@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { orderStatusUpdateSchema } from '../../shared/index.js';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -213,8 +214,10 @@ export async function updateOrderStatus(req: Request, res: Response) {
         const product = store.products.find((p) => p.id === item.productId);
         if (product) {
           product.stockQuantity += item.quantity;
-          store.inventoryMovements.push({
-            id: `inv-${Date.now()}`,
+          product.updatedAt = new Date();
+          await store.saveProduct(product);
+          await store.saveInventoryMovement({
+            id: crypto.randomUUID(),
             productId: product.id,
             productName: product.name,
             quantityChange: item.quantity,
@@ -229,11 +232,11 @@ export async function updateOrderStatus(req: Request, res: Response) {
     }
   }
 
-  store.updateOrderStatus(order.id, newStatus);
+  await store.updateOrderStatus(order.id, newStatus);
 
   // Record history
-  store.saveOrderStatusHistory({
-    id: `osh-${Date.now()}`,
+  await store.saveOrderStatusHistory({
+    id: crypto.randomUUID(),
     orderId: order.id,
     previousStatus,
     newStatus,
@@ -242,8 +245,8 @@ export async function updateOrderStatus(req: Request, res: Response) {
     createdAt: new Date(),
   });
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'order_status_update',

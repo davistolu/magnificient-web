@@ -54,20 +54,33 @@ export class DataStore {
   notifications: any[] = [];
   newsletter: Set<string> = new Set();
   private isLoaded = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initStore();
+    this.ensureInitialized().catch((err) => {
+      console.warn('[Database] Initial background sync note:', err.message);
+    });
+  }
+
+  public async ensureInitialized(): Promise<void> {
+    if (this.isLoaded) return;
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        if (pool) {
+          await this.loadFromPostgres();
+          this.isLoaded = true;
+        }
+      })().catch((err) => {
+        this.initPromise = null; // allow retry on next request
+        console.warn('[Database] PostgreSQL sync attempt failed, will retry on demand:', err.message);
+        throw err;
+      });
+    }
+    await this.initPromise;
   }
 
   public async initStore() {
-    if (pool) {
-      try {
-        await this.loadFromPostgres();
-        this.isLoaded = true;
-      } catch (err) {
-        console.warn('[Database] Initial PostgreSQL load failed, will retry on demand:', (err as Error).message);
-      }
-    }
+    await this.ensureInitialized();
   }
 
   public async loadFromPostgres() {
@@ -254,6 +267,9 @@ export class DataStore {
   // --- WRITE-THROUGH POSTGRESQL MUTATIONS ---
 
   public async saveUser(user: any) {
+    const userId = isUuid(user.id) ? user.id : crypto.randomUUID();
+    user.id = userId;
+
     const idx = this.users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
     if (idx >= 0) {
       this.users[idx] = { ...this.users[idx], ...user };
@@ -262,26 +278,34 @@ export class DataStore {
     }
 
     if (pool) {
-      pool.query(`
-        INSERT INTO users (id, full_name, email, phone, password_hash, role, is_active, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-        ON CONFLICT (email) DO UPDATE SET
-          full_name = EXCLUDED.full_name,
-          phone = EXCLUDED.phone,
-          password_hash = EXCLUDED.password_hash,
-          role = EXCLUDED.role,
-          is_active = EXCLUDED.is_active,
-          updated_at = NOW()
-      `, [user.id, user.fullName, user.email.toLowerCase(), user.phone || null, user.passwordHash, user.role, user.isActive]).catch((err) => {
-        console.warn('[Postgres saveUser Warning]:', err.message);
-      });
+      try {
+        await pool.query(`
+          INSERT INTO users (id, full_name, email, phone, password_hash, role, is_active, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          ON CONFLICT (email) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            phone = EXCLUDED.phone,
+            password_hash = EXCLUDED.password_hash,
+            role = EXCLUDED.role,
+            is_active = EXCLUDED.is_active,
+            updated_at = NOW()
+        `, [userId, user.fullName, user.email.toLowerCase(), user.phone || null, user.passwordHash, user.role, user.isActive]);
+      } catch (err) {
+        console.error('[Postgres saveUser Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
   public async deleteUser(id: string) {
     this.users = this.users.filter((u) => u.id !== id);
     if (pool) {
-      await pool.query('DELETE FROM users WHERE id = $1', [id]);
+      try {
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+      } catch (err) {
+        console.error('[Postgres deleteUser Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
@@ -297,19 +321,22 @@ export class DataStore {
     }
 
     if (pool) {
-      pool.query(`
-        INSERT INTO categories (id, name, slug, description, image_url, is_active, display_order, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-        ON CONFLICT (slug) DO UPDATE SET
-          name = EXCLUDED.name,
-          description = EXCLUDED.description,
-          image_url = EXCLUDED.image_url,
-          is_active = EXCLUDED.is_active,
-          display_order = EXCLUDED.display_order,
-          updated_at = NOW()
-      `, [catId, category.name, category.slug, category.description, category.imageUrl || null, category.isActive ?? true, category.displayOrder || 0]).catch((err) => {
-        console.warn('[Postgres saveCategory Warning]:', err.message);
-      });
+      try {
+        await pool.query(`
+          INSERT INTO categories (id, name, slug, description, image_url, is_active, display_order, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          ON CONFLICT (slug) DO UPDATE SET
+            name = EXCLUDED.name,
+            description = EXCLUDED.description,
+            image_url = EXCLUDED.image_url,
+            is_active = EXCLUDED.is_active,
+            display_order = EXCLUDED.display_order,
+            updated_at = NOW()
+        `, [catId, category.name, category.slug, category.description, category.imageUrl || null, category.isActive ?? true, category.displayOrder || 0]);
+      } catch (err) {
+        console.error('[Postgres saveCategory Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
@@ -452,6 +479,10 @@ export class DataStore {
   }
 
   public async saveOrder(order: any, items: any[] = []) {
+    const finalOrderId = isUuid(order.id) ? order.id : crypto.randomUUID();
+    order.id = finalOrderId;
+    const finalCustomerId = isUuid(order.customerId) ? order.customerId : null;
+
     const idx = this.orders.findIndex((o) => o.id === order.id);
     if (idx >= 0) {
       this.orders[idx] = { ...this.orders[idx], ...order };
@@ -460,8 +491,13 @@ export class DataStore {
     }
 
     if (items && items.length > 0) {
-      this.orderItems = this.orderItems.filter((it) => it.orderId !== order.id);
-      this.orderItems.push(...items);
+      this.orderItems = this.orderItems.filter((it) => it.orderId !== finalOrderId);
+      items.forEach((it) => {
+        it.id = isUuid(it.id) ? it.id : crypto.randomUUID();
+        it.orderId = finalOrderId;
+        it.productId = isUuid(it.productId) ? it.productId : null;
+        this.orderItems.push(it);
+      });
     }
 
     if (pool) {
@@ -482,7 +518,7 @@ export class DataStore {
             order_status = EXCLUDED.order_status,
             updated_at = NOW()
         `, [
-          order.id, order.orderNumber, order.guestAccessToken, order.customerId || null,
+          finalOrderId, order.orderNumber, order.guestAccessToken, finalCustomerId,
           order.customerName, order.customerEmail, order.customerPhone, order.deliveryAddress,
           order.deliveryCity, order.deliveryState, order.deliveryInstructions || null,
           order.subtotal, order.discountAmount || 0, order.shippingAmount || 0,
@@ -492,6 +528,8 @@ export class DataStore {
 
         if (items && items.length > 0) {
           for (const item of items) {
+            const itemId = isUuid(item.id) ? item.id : crypto.randomUUID();
+            const prodId = isUuid(item.productId) ? item.productId : null;
             await client.query(`
               INSERT INTO order_items (
                 id, order_id, product_id, product_name_snapshot, sku_snapshot,
@@ -501,8 +539,8 @@ export class DataStore {
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
               ON CONFLICT (id) DO NOTHING
             `, [
-              item.id || `item-${Date.now()}-${Math.random()}`,
-              order.id, item.productId || null, item.productNameSnapshot, item.skuSnapshot,
+              itemId,
+              finalOrderId, prodId, item.productNameSnapshot, item.skuSnapshot,
               item.unitPrice, item.quantity, item.lineTotal,
               item.selectedOptionsSnapshot ? JSON.stringify(item.selectedOptionsSnapshot) : null,
               item.productImageSnapshot || null
@@ -512,7 +550,8 @@ export class DataStore {
         await client.query('COMMIT');
       } catch (err) {
         await client.query('ROLLBACK');
-        console.warn('[Postgres saveOrder Warning]:', (err as Error).message);
+        console.error('[Postgres saveOrder Error]:', (err as Error).message);
+        throw err;
       } finally {
         client.release();
       }
@@ -520,23 +559,39 @@ export class DataStore {
   }
 
   public async updateOrderStatus(orderId: string, orderStatus: string, paymentStatus?: string) {
-    const order = this.orders.find((o) => o.id === orderId);
+    const order = this.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+    const dbOrderId = order?.id || orderId;
     if (order) {
       order.orderStatus = orderStatus;
       if (paymentStatus) order.paymentStatus = paymentStatus;
       order.updatedAt = new Date();
     }
 
-    if (pool) {
-      if (paymentStatus) {
-        pool.query('UPDATE orders SET order_status = $1, payment_status = $2, updated_at = NOW() WHERE id = $3', [orderStatus, paymentStatus, orderId]).catch(() => {});
-      } else {
-        pool.query('UPDATE orders SET order_status = $1, updated_at = NOW() WHERE id = $2', [orderStatus, orderId]).catch(() => {});
+    if (pool && isUuid(dbOrderId)) {
+      try {
+        if (paymentStatus) {
+          await pool.query('UPDATE orders SET order_status = $1, payment_status = $2, updated_at = NOW() WHERE id = $3', [orderStatus, paymentStatus, dbOrderId]);
+        } else {
+          await pool.query('UPDATE orders SET order_status = $1, updated_at = NOW() WHERE id = $2', [orderStatus, dbOrderId]);
+        }
+      } catch (err) {
+        console.error('[Postgres updateOrderStatus Error]:', (err as Error).message);
+        throw err;
       }
     }
   }
 
   public async savePaymentSubmission(sub: any) {
+    const subId = isUuid(sub.id) ? sub.id : crypto.randomUUID();
+    sub.id = subId;
+
+    if (!isUuid(sub.orderId)) {
+      const ord = this.orders.find((o) => o.orderNumber === sub.orderId || o.id === sub.orderId);
+      if (ord && isUuid(ord.id)) {
+        sub.orderId = ord.id;
+      }
+    }
+
     const idx = this.paymentSubmissions.findIndex((s) => s.id === sub.id);
     if (idx >= 0) {
       this.paymentSubmissions[idx] = { ...this.paymentSubmissions[idx], ...sub };
@@ -544,103 +599,148 @@ export class DataStore {
       this.paymentSubmissions.unshift(sub);
     }
 
-    if (pool) {
-      pool.query(`
-        INSERT INTO payment_submissions (
-          id, order_id, receipt_storage_key, original_filename, mime_type,
-          file_size, submitted_amount, payment_reference, status, rejection_reason,
-          reviewed_by, reviewed_at, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          status = EXCLUDED.status,
-          rejection_reason = EXCLUDED.rejection_reason,
-          reviewed_by = EXCLUDED.reviewed_by,
-          reviewed_at = EXCLUDED.reviewed_at,
-          updated_at = NOW()
-      `, [
-        sub.id, sub.orderId, sub.receiptStorageKey, sub.originalFilename, sub.mimeType,
-        sub.fileSize, sub.submittedAmount, sub.paymentReference || null, sub.status,
-        sub.rejectionReason || null, sub.reviewedBy || null, sub.reviewedAt || null
-      ]).catch((err) => {
-        console.warn('[Postgres savePaymentSubmission Warning]:', err.message);
-      });
+    if (pool && isUuid(sub.orderId)) {
+      try {
+        await pool.query(`
+          INSERT INTO payment_submissions (
+            id, order_id, receipt_storage_key, original_filename, mime_type,
+            file_size, submitted_amount, payment_reference, status, rejection_reason,
+            reviewed_by, reviewed_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            rejection_reason = EXCLUDED.rejection_reason,
+            reviewed_by = EXCLUDED.reviewed_by,
+            reviewed_at = EXCLUDED.reviewed_at,
+            updated_at = NOW()
+        `, [
+          subId, sub.orderId, sub.receiptStorageKey, sub.originalFilename, sub.mimeType,
+          sub.fileSize, sub.submittedAmount, sub.paymentReference || null, sub.status,
+          sub.rejectionReason || null, sub.reviewedBy || null, sub.reviewedAt || null
+        ]);
+      } catch (err) {
+        console.error('[Postgres savePaymentSubmission Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
   public async saveOrderStatusHistory(h: any) {
+    const histId = isUuid(h.id) ? h.id : crypto.randomUUID();
+    h.id = histId;
+
+    if (!isUuid(h.orderId)) {
+      const ord = this.orders.find((o) => o.orderNumber === h.orderId || o.id === h.orderId);
+      if (ord && isUuid(ord.id)) {
+        h.orderId = ord.id;
+      }
+    }
+
     this.orderStatusHistory.push(h);
-    if (pool) {
-      pool.query(`
-        INSERT INTO order_status_history (id, order_id, previous_status, new_status, changed_by, note)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [h.id || `osh-${Date.now()}`, h.orderId, h.previousStatus || null, h.newStatus, h.changedBy, h.note || null]).catch(() => {});
+    if (pool && isUuid(h.orderId)) {
+      try {
+        await pool.query(`
+          INSERT INTO order_status_history (id, order_id, previous_status, new_status, changed_by, note)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [histId, h.orderId, h.previousStatus || null, h.newStatus, h.changedBy, h.note || null]);
+      } catch (err) {
+        console.error('[Postgres saveOrderStatusHistory Error]:', (err as Error).message);
+      }
     }
   }
 
   public async saveInventoryMovement(m: any) {
     const movementId = isUuid(m.id) ? m.id : crypto.randomUUID();
     m.id = movementId;
+    const prodId = isUuid(m.productId) ? m.productId : null;
     this.inventoryMovements.push(m);
-    if (pool) {
-      const prodId = isUuid(m.productId) ? m.productId : null;
-      pool.query(`
-        INSERT INTO inventory_movements (id, product_id, quantity_change, movement_type, reason, reference_id, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [movementId, prodId, m.quantityChange, m.movementType, m.reason || null, m.referenceId || null, m.createdBy]).catch(() => {});
+    if (pool && prodId) {
+      try {
+        await pool.query(`
+          INSERT INTO inventory_movements (id, product_id, quantity_change, movement_type, reason, reference_id, created_by)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [movementId, prodId, m.quantityChange, m.movementType, m.reason || null, m.referenceId || null, m.createdBy]);
+      } catch (err) {
+        console.error('[Postgres saveInventoryMovement Error]:', (err as Error).message);
+      }
     }
   }
 
   public async saveStoreSetting(key: string, value: any) {
     this.storeSettings.set(key, value);
     if (pool) {
-      pool.query(`
-        INSERT INTO store_settings (key, value, updated_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-      `, [key, JSON.stringify(value)]).catch(() => {});
+      try {
+        await pool.query(`
+          INSERT INTO store_settings (key, value, updated_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        `, [key, JSON.stringify(value)]);
+      } catch (err) {
+        console.error('[Postgres saveStoreSetting Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
   public async saveDiscount(d: any) {
-    const idx = this.discounts.findIndex((disc) => disc.id === d.id);
+    const discId = isUuid(d.id) ? d.id : crypto.randomUUID();
+    d.id = discId;
+    const idx = this.discounts.findIndex((disc) => disc.id === d.id || disc.code === d.code);
     if (idx >= 0) {
       this.discounts[idx] = { ...this.discounts[idx], ...d };
     } else {
       this.discounts.push(d);
     }
     if (pool) {
-      pool.query(`
-        INSERT INTO discounts (id, code, discount_type, discount_value, min_order_amount, usage_limit, usage_count, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (code) DO UPDATE SET
-          discount_type = EXCLUDED.discount_type,
-          discount_value = EXCLUDED.discount_value,
-          min_order_amount = EXCLUDED.min_order_amount,
-          usage_limit = EXCLUDED.usage_limit,
-          usage_count = EXCLUDED.usage_count,
-          is_active = EXCLUDED.is_active
-      `, [d.id, d.code, d.discountType, d.discountValue, d.minOrderAmount || null, d.usageLimit || null, d.usageCount || 0, d.isActive ?? true]).catch(() => {});
+      try {
+        await pool.query(`
+          INSERT INTO discounts (id, code, discount_type, discount_value, min_order_amount, usage_limit, usage_count, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          ON CONFLICT (code) DO UPDATE SET
+            discount_type = EXCLUDED.discount_type,
+            discount_value = EXCLUDED.discount_value,
+            min_order_amount = EXCLUDED.min_order_amount,
+            usage_limit = EXCLUDED.usage_limit,
+            usage_count = EXCLUDED.usage_count,
+            is_active = EXCLUDED.is_active
+        `, [discId, d.code, d.discountType, d.discountValue, d.minOrderAmount || null, d.usageLimit || null, d.usageCount || 0, d.isActive ?? true]);
+      } catch (err) {
+        console.error('[Postgres saveDiscount Error]:', (err as Error).message);
+        throw err;
+      }
     }
   }
 
   public async saveAuditLog(l: any) {
+    const auditId = isUuid(l.id) ? l.id : crypto.randomUUID();
+    l.id = auditId;
     this.auditLogs.unshift(l);
     if (pool) {
-      pool.query(`
-        INSERT INTO audit_logs (id, actor_id, actor_name, action, resource_type, resource_id, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [l.id, l.actorId, l.actorName, l.action, l.resourceType, l.resourceId, l.metadata ? JSON.stringify(l.metadata) : null]).catch(() => {});
+      try {
+        await pool.query(`
+          INSERT INTO audit_logs (id, actor_id, actor_name, action, resource_type, resource_id, metadata)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [auditId, l.actorId, l.actorName, l.action, l.resourceType, l.resourceId, l.metadata ? JSON.stringify(l.metadata) : null]);
+      } catch (err) {
+        console.warn('[Postgres saveAuditLog Warning]:', (err as Error).message);
+      }
     }
   }
 
   public async saveNotification(n: any) {
+    const notifId = isUuid(n.id) ? n.id : crypto.randomUUID();
+    n.id = notifId;
     this.notifications.unshift(n);
     if (pool) {
-      pool.query(`
-        INSERT INTO notifications (id, recipient_role, title, message, type, is_read, order_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [n.id, n.recipientRole || 'admin', n.title, n.message, n.type, Boolean(n.isRead), n.orderId || null]).catch(() => {});
+      try {
+        await pool.query(`
+          INSERT INTO notifications (id, recipient_role, title, message, type, is_read, order_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [notifId, n.recipientRole || 'admin', n.title, n.message, n.type, Boolean(n.isRead), n.orderId || null]);
+      } catch (err) {
+        console.warn('[Postgres saveNotification Warning]:', (err as Error).message);
+      }
     }
   }
 
