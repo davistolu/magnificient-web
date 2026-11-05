@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
-import { INITIAL_ADMIN } from './seed-data.js';
+import { INITIAL_ADMIN, INITIAL_CATEGORIES } from './seed-data.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -239,10 +239,25 @@ async function main() {
     `, [INITIAL_ADMIN.fullName, aliasEmail, INITIAL_ADMIN.phone, passwordHash, INITIAL_ADMIN.role]);
   }
 
+  console.log('[Neon Seed] Ensuring core luxury taxonomy categories exist...');
+  for (const cat of INITIAL_CATEGORIES) {
+    await client.query(`
+      INSERT INTO categories (name, slug, description, image_url, display_order, is_active)
+      VALUES ($1, $2, $3, $4, $5, true)
+      ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        image_url = EXCLUDED.image_url,
+        display_order = EXCLUDED.display_order
+    `, [cat.name, cat.slug, cat.description, cat.imageUrl, cat.displayOrder]);
+  }
+
   console.log('\n======================================================');
-  console.log('✅ ADMIN CREDENTIALS SUCCESSFULLY SEEDED IN NEON:');
+  console.log('✅ ADMIN CREDENTIALS & TAXONOMY CATEGORIES SEEDED:');
   const allAdmins = await client.query("SELECT id, full_name, email, role, is_active, created_at FROM users WHERE role = 'admin'");
   console.table(allAdmins.rows);
+  const allCats = await client.query("SELECT id, name, slug, display_order FROM categories ORDER BY display_order ASC");
+  console.table(allCats.rows);
   console.log('======================================================\n');
 }
 

@@ -1,14 +1,20 @@
 import { Request, Response } from 'express';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { INITIAL_CATEGORIES } from '../../database/seed-data.js';
 
 export async function listCategories(req: Request, res: Response) {
-  const activeCategories = store.categories
-    .filter((c) => c.isActive)
-    .sort((a, b) => a.displayOrder - b.displayOrder)
+  let categoriesToUse = store.categories;
+  if (!categoriesToUse || categoriesToUse.length === 0) {
+    categoriesToUse = INITIAL_CATEGORIES;
+  }
+
+  const activeCategories = categoriesToUse
+    .filter((c) => c.isActive !== false)
+    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
     .map((c) => {
       const productCount = store.products.filter(
-        (p) => p.categoryId === c.id && p.status === 'published'
+        (p) => (p.categoryId === c.id || p.categoryId === c.slug) && p.status === 'published'
       ).length;
       return {
         ...c,
@@ -68,7 +74,7 @@ export async function createCategory(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  store.categories.push(newCategory);
+  await store.saveCategory(newCategory);
 
   return res.status(201).json({
     success: true,

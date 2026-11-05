@@ -5,6 +5,9 @@ import { config } from '../config/index.js';
 import { INITIAL_ADMIN, INITIAL_CATEGORIES, INITIAL_PRODUCTS, INITIAL_DISCOUNTS } from './seed-data.js';
 import { DEFAULT_STORE_SETTINGS } from '../shared/index.js';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+
+const isUuid = (val?: string | null): boolean => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
 const { Pool } = pg;
 
@@ -37,7 +40,7 @@ try {
 // 100% PostgreSQL-Backed Enterprise Store
 export class DataStore {
   users: any[] = [];
-  categories: any[] = [];
+  categories: any[] = [...INITIAL_CATEGORIES];
   products: any[] = [];
   productImages: any[] = [];
   orders: any[] = [];
@@ -83,12 +86,36 @@ export class DataStore {
       }));
 
       // 2. Categories
-      const catRes = await client.query(`
+      let catRes = await client.query(`
         SELECT id, name, slug, description, image_url as "imageUrl",
                is_active as "isActive", display_order as "displayOrder",
                created_at as "createdAt", updated_at as "updatedAt"
         FROM categories ORDER BY display_order ASC
       `);
+
+      // If categories table in PostgreSQL is empty, auto-populate the core luxury categories
+      if (catRes.rows.length === 0) {
+        console.log('[Database] Categories table empty in PostgreSQL. Initializing core luxury taxonomy...');
+        for (const cat of INITIAL_CATEGORIES) {
+          await client.query(`
+            INSERT INTO categories (name, slug, description, image_url, display_order, is_active)
+            VALUES ($1, $2, $3, $4, $5, true)
+            ON CONFLICT (slug) DO UPDATE SET
+              name = EXCLUDED.name,
+              description = EXCLUDED.description,
+              image_url = EXCLUDED.image_url,
+              display_order = EXCLUDED.display_order
+          `, [cat.name, cat.slug, cat.description, cat.imageUrl, cat.displayOrder]);
+        }
+
+        catRes = await client.query(`
+          SELECT id, name, slug, description, image_url as "imageUrl",
+                 is_active as "isActive", display_order as "displayOrder",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM categories ORDER BY display_order ASC
+        `);
+      }
+
       this.categories = catRes.rows.map((c) => ({
         ...c,
         isActive: Boolean(c.isActive),
@@ -259,6 +286,9 @@ export class DataStore {
   }
 
   public async saveCategory(category: any) {
+    const catId = isUuid(category.id) ? category.id : crypto.randomUUID();
+    category.id = catId;
+
     const idx = this.categories.findIndex((c) => c.id === category.id || c.slug === category.slug);
     if (idx >= 0) {
       this.categories[idx] = { ...this.categories[idx], ...category };
@@ -277,13 +307,31 @@ export class DataStore {
           is_active = EXCLUDED.is_active,
           display_order = EXCLUDED.display_order,
           updated_at = NOW()
-      `, [category.id, category.name, category.slug, category.description, category.imageUrl || null, category.isActive ?? true, category.displayOrder || 0]).catch((err) => {
+      `, [catId, category.name, category.slug, category.description, category.imageUrl || null, category.isActive ?? true, category.displayOrder || 0]).catch((err) => {
         console.warn('[Postgres saveCategory Warning]:', err.message);
       });
     }
   }
 
   public async saveProduct(product: any, images: any[] = []) {
+    const finalProductId = isUuid(product.id) ? product.id : crypto.randomUUID();
+    product.id = finalProductId;
+
+    // Resolve categoryId to a valid database UUID if possible
+    let finalCategoryId: string | null = null;
+    if (isUuid(product.categoryId)) {
+      finalCategoryId = product.categoryId;
+    } else if (product.categoryId) {
+      const matched = this.categories.find(
+        (c) => c.id === product.categoryId ||
+               c.slug === product.categoryId ||
+               c.slug === String(product.categoryId).replace('cat-', '')
+      );
+      if (matched && isUuid(matched.id)) {
+        finalCategoryId = matched.id;
+      }
+    }
+
     const idx = this.products.findIndex((p) => p.id === product.id);
     if (idx >= 0) {
       this.products[idx] = { ...this.products[idx], ...product };
@@ -292,11 +340,12 @@ export class DataStore {
     }
 
     if (images && images.length > 0) {
-      this.productImages = this.productImages.filter((img) => img.productId !== product.id);
+      this.productImages = this.productImages.filter((img) => img.productId !== finalProductId);
       images.forEach((img, i) => {
+        const imgId = isUuid(img.id) ? img.id : crypto.randomUUID();
         this.productImages.push({
-          id: img.id || `img-${product.id}-${i}`,
-          productId: product.id,
+          id: imgId,
+          productId: finalProductId,
           imageUrl: img.imageUrl,
           altText: img.altText || 'Product photograph',
           displayOrder: img.displayOrder || i,
@@ -340,7 +389,7 @@ export class DataStore {
               seo_description = EXCLUDED.seo_description,
               updated_at = NOW()
           `, [
-            product.id, product.categoryId || null, product.name, product.slug, product.sku,
+            finalProductId, finalCategoryId, product.name, product.slug, product.sku,
             product.shortDescription, product.description, product.price, product.compareAtPrice || null,
             product.stockQuantity, product.lowStockThreshold, product.status || 'published',
             Boolean(product.isFeatured), product.brand || null, product.gender || null,
@@ -349,13 +398,14 @@ export class DataStore {
           ]);
 
           if (images && images.length > 0) {
-            await client.query('DELETE FROM product_images WHERE product_id = $1', [product.id]);
+            await client.query('DELETE FROM product_images WHERE product_id = $1', [finalProductId]);
             for (let i = 0; i < images.length; i++) {
               const img = images[i];
+              const imgId = isUuid(img.id) ? img.id : crypto.randomUUID();
               await client.query(`
                 INSERT INTO product_images (id, product_id, image_url, alt_text, display_order, is_primary)
                 VALUES ($1, $2, $3, $4, $5, $6)
-              `, [img.id || `img-${product.id}-${i}`, product.id, img.imageUrl, img.altText || 'Product photograph', img.displayOrder || i, Boolean(img.isPrimary)]);
+              `, [imgId, finalProductId, img.imageUrl, img.altText || 'Product photograph', img.displayOrder || i, Boolean(img.isPrimary)]);
             }
           }
           await client.query('COMMIT');
@@ -529,12 +579,15 @@ export class DataStore {
   }
 
   public async saveInventoryMovement(m: any) {
+    const movementId = isUuid(m.id) ? m.id : crypto.randomUUID();
+    m.id = movementId;
     this.inventoryMovements.push(m);
     if (pool) {
+      const prodId = isUuid(m.productId) ? m.productId : null;
       pool.query(`
         INSERT INTO inventory_movements (id, product_id, quantity_change, movement_type, reason, reference_id, created_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [m.id || `inv-${Date.now()}`, m.productId, m.quantityChange, m.movementType, m.reason || null, m.referenceId || null, m.createdBy]).catch(() => {});
+      `, [movementId, prodId, m.quantityChange, m.movementType, m.reason || null, m.referenceId || null, m.createdBy]).catch(() => {});
     }
   }
 
