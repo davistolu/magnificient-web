@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { loginSchema, registerSchema } from '../../shared/index.js';
 import { store, pool } from '../../database/index.js';
 import { config } from '../../config/index.js';
@@ -79,10 +80,8 @@ export async function login(req: Request, res: Response) {
         const salt = await bcrypt.genSalt(10);
         const newHash = await bcrypt.hash(validated.password, salt);
         user.passwordHash = newHash;
-        store.saveUser(user);
-        if (pool) {
-          pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, user.id]).catch(() => {});
-        }
+        user.updatedAt = new Date();
+        await store.saveUser(user);
       }
     }
   }
@@ -138,7 +137,7 @@ export async function register(req: Request, res: Response) {
   const passwordHash = await bcrypt.hash(validated.password, salt);
 
   const newUser = {
-    id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: crypto.randomUUID(),
     fullName: validated.fullName,
     email: validated.email.toLowerCase(),
     phone: validated.phone || null,
@@ -149,7 +148,7 @@ export async function register(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  store.saveUser(newUser);
+  await store.saveUser(newUser);
 
   const token = jwt.sign(
     {

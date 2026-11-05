@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { store, pool } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -44,7 +45,7 @@ export async function createTeamMember(req: Request, res: Response) {
 
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(validated.password, salt);
-  const newId = `usr-team-${Date.now()}`;
+  const newId = crypto.randomUUID();
 
   const newMember = {
     id: newId,
@@ -60,8 +61,8 @@ export async function createTeamMember(req: Request, res: Response) {
 
   await store.saveUser(newMember);
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'team_member_created',
@@ -127,8 +128,8 @@ export async function deleteTeamMember(req: Request, res: Response) {
 
   await store.deleteUser(id);
 
-  store.saveAuditLog({
-    id: `aud-${Date.now()}`,
+  await store.saveAuditLog({
+    id: crypto.randomUUID(),
     actorId: req.user?.id || 'admin',
     actorName: req.user?.fullName || 'Admin',
     action: 'team_member_deleted',

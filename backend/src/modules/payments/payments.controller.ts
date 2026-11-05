@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { paymentVerificationSchema } from '../../shared/index.js';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -85,7 +86,7 @@ export async function submitReceipt(req: Request, res: Response) {
   const uploadResult = await storageService.uploadReceipt(file.path, file.filename, file.mimetype);
 
   // 5. Create submission record
-  const submissionId = `sub-${Date.now()}`;
+  const submissionId = crypto.randomUUID();
   const submission = {
     id: submissionId,
     orderId: order.id,
@@ -104,15 +105,15 @@ export async function submitReceipt(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  store.savePaymentSubmission(submission);
+  await store.savePaymentSubmission(submission);
 
   // 5. Update Order Status
   const previousStatus = order.orderStatus;
-  store.updateOrderStatus(order.id, 'payment_review', 'pending_verification');
+  await store.updateOrderStatus(order.id, 'payment_review', 'pending_verification');
 
   // 6. Record Status History
-  store.saveOrderStatusHistory({
-    id: `osh-${Date.now()}`,
+  await store.saveOrderStatusHistory({
+    id: crypto.randomUUID(),
     orderId: order.id,
     previousStatus,
     newStatus: 'payment_review',
@@ -122,8 +123,8 @@ export async function submitReceipt(req: Request, res: Response) {
   });
 
   // 7. Store admin notification
-  store.notifications.push({
-    id: `notif-${Date.now()}`,
+  await store.saveNotification({
+    id: crypto.randomUUID(),
     recipientRole: 'admin',
     title: `Receipt Uploaded: ${order.orderNumber}`,
     message: `${order.customerName} submitted a payment receipt of ₦${(submission.submittedAmount || order.totalAmount).toLocaleString()} for order ${order.orderNumber}.`,
@@ -193,11 +194,11 @@ export async function verifyPayment(req: Request, res: Response) {
     submission.updatedAt = new Date();
 
     const previousStatus = order.orderStatus;
-    store.updateOrderStatus(order.id, 'confirmed', 'paid');
-    store.savePaymentSubmission(submission);
+    await store.updateOrderStatus(order.id, 'confirmed', 'paid');
+    await store.savePaymentSubmission(submission);
 
-    store.saveOrderStatusHistory({
-      id: `osh-${Date.now()}`,
+    await store.saveOrderStatusHistory({
+      id: crypto.randomUUID(),
       orderId: order.id,
       previousStatus,
       newStatus: 'confirmed',
@@ -206,8 +207,8 @@ export async function verifyPayment(req: Request, res: Response) {
       createdAt: new Date(),
     });
 
-    store.saveAuditLog({
-      id: `aud-${Date.now()}`,
+    await store.saveAuditLog({
+      id: crypto.randomUUID(),
       actorId: req.user?.id || 'admin',
       actorName: reviewerName,
       action: 'payment_approve',
@@ -230,11 +231,11 @@ export async function verifyPayment(req: Request, res: Response) {
     submission.reviewedAt = new Date();
     submission.updatedAt = new Date();
 
-    store.updateOrderStatus(order.id, order.orderStatus, 'rejected');
-    store.savePaymentSubmission(submission);
+    await store.updateOrderStatus(order.id, order.orderStatus, 'rejected');
+    await store.savePaymentSubmission(submission);
 
-    store.saveOrderStatusHistory({
-      id: `osh-${Date.now()}`,
+    await store.saveOrderStatusHistory({
+      id: crypto.randomUUID(),
       orderId: order.id,
       previousStatus: order.orderStatus,
       newStatus: order.orderStatus,
@@ -243,8 +244,8 @@ export async function verifyPayment(req: Request, res: Response) {
       createdAt: new Date(),
     });
 
-    store.saveAuditLog({
-      id: `aud-${Date.now()}`,
+    await store.saveAuditLog({
+      id: crypto.randomUUID(),
       actorId: req.user?.id || 'admin',
       actorName: reviewerName,
       action: 'payment_reject',
