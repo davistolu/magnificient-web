@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { useToast } from '../../context/ToastContext.js';
-import { Plus, Edit, Archive, Trash2, Search, Package, Play } from 'lucide-react';
+import { Plus, Edit, Archive, Trash2, Search, Package, Play, Copy, ExternalLink } from 'lucide-react';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
 export const ProductListPage: React.FC = () => {
@@ -66,6 +66,17 @@ export const ProductListPage: React.FC = () => {
       error('Deletion Error', err.message || 'Failed to delete product');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleCopyLink = async (slug: string, name: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.site';
+    const url = `${origin}/products/${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      success('Link Copied', `Direct link to "${name}" copied to clipboard.`);
+    } catch {
+      // Fallback
     }
   };
 
@@ -252,6 +263,22 @@ export const ProductListPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => handleCopyLink(p.slug, p.name)}
+                          className="p-1.5 text-stone-muted hover:text-champagne-dark inline-block transition-colors"
+                          title="Copy Storefront Link"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <a
+                          href={`/products/${p.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-stone-muted hover:text-champagne-dark inline-block transition-colors"
+                          title="View on Storefront"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                         <Link
                           to={`/admin/products/${p.id}/edit`}
                           className="p-1.5 text-stone-muted hover:text-espresso-900 inline-block"

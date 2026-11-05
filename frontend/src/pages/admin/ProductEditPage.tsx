@@ -23,6 +23,13 @@ import {
 import { getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
+const FALLBACK_CATEGORIES = [
+  { id: 'cat-watches', name: 'Wristwatches', slug: 'watches' },
+  { id: 'cat-jewellery', name: 'Fine Jewellery', slug: 'jewellery' },
+  { id: 'cat-perfumes', name: 'Niche Fragrances', slug: 'perfumes' },
+  { id: 'cat-gift-sets', name: 'Curated Gift Sets', slug: 'gift-sets' },
+];
+
 function generateAutoSku(categoryId?: string, categoriesList: any[] = []): string {
   const cat = categoriesList.find((c) => c.id === categoryId);
   let prefix = 'ITM';
@@ -44,7 +51,7 @@ export const ProductEditPage: React.FC = () => {
   const isEditing = Boolean(id && id !== 'new');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(FALLBACK_CATEGORIES);
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -60,7 +67,7 @@ export const ProductEditPage: React.FC = () => {
     name: '',
     slug: '',
     sku: '',
-    categoryId: '',
+    categoryId: FALLBACK_CATEGORIES[0].id,
     shortDescription: '',
     description: '',
     price: '',
@@ -69,7 +76,7 @@ export const ProductEditPage: React.FC = () => {
     lowStockThreshold: '2',
     status: 'published',
     isFeatured: false,
-    brand: 'Magnificent',
+    brand: 'MagnifiScent',
   });
 
   const [images, setImages] = useState<Array<{ imageUrl: string; altText: string; isPrimary: boolean }>>([
@@ -88,18 +95,31 @@ export const ProductEditPage: React.FC = () => {
   useEffect(() => {
     async function init() {
       try {
-        const catRes = await api.getCategories();
-        if (catRes.success) {
-          setCategories(catRes.data);
-          if (!isEditing && catRes.data.length > 0) {
-            const defaultCatId = catRes.data[0].id;
-            const autoSku = generateAutoSku(defaultCatId, catRes.data);
-            setForm((f) => ({
+        let loadedCats: any[] = [];
+        try {
+          const catRes = await api.getCategories();
+          if (catRes.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
+            loadedCats = catRes.data;
+          }
+        } catch (catErr) {
+          console.warn('[ProductEditPage] Could not load categories from server:', catErr);
+        }
+
+        if (loadedCats.length === 0) {
+          loadedCats = FALLBACK_CATEGORIES;
+        }
+
+        setCategories(loadedCats);
+        if (!isEditing) {
+          setForm((f) => {
+            const defaultCatId = f.categoryId || loadedCats[0].id;
+            const autoSku = generateAutoSku(defaultCatId, loadedCats);
+            return {
               ...f,
               categoryId: defaultCatId,
               sku: f.sku || autoSku,
-            }));
-          }
+            };
+          });
         }
 
         if (isEditing && id) {
@@ -504,8 +524,13 @@ export const ProductEditPage: React.FC = () => {
                 required
                 value={form.categoryId}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full bg-ivory-50 border border-stone px-3 py-2 text-espresso-900 focus:outline-none focus:border-espresso-900"
+                className="w-full bg-ivory-50 border border-stone px-3 py-2 text-espresso-900 focus:outline-none focus:border-espresso-900 text-xs sm:text-sm font-medium"
               >
+                {!form.categoryId && (
+                  <option value="" disabled>
+                    Select a Category...
+                  </option>
+                )}
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

@@ -16,19 +16,63 @@ import {
   X,
   Play,
   Film,
+  Share2,
+  Check,
 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext.js';
 import { SEO } from '../../components/common/SEO.js';
 
 export const ProductDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { success } = useToast();
 
   const [product, setProduct] = useState<any>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (!product) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.site';
+    const shareUrl = `${origin}/products/${product.slug}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.name} | MagnifiScent Luxury`,
+          text: `Discover ${product.name} at MagnifiScent Luxury Atelier`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      success('Link Copied', `Direct link to "${product.name}" copied to clipboard.`);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      success('Link Copied', `Direct link to "${product.name}" copied to clipboard.`);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
 
   useEffect(() => {
     async function loadProduct() {
@@ -287,10 +331,30 @@ export const ProductDetailPage: React.FC = () => {
         {/* Right: Purchasing & Details Column (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
           <div>
-            <div className="flex items-center space-x-2 text-[10px] uppercase tracking-widest text-charcoal/80 font-mono mb-1">
-              <span>{product.brand || 'Magnificent'}</span>
-              <span>•</span>
-              <span>SKU: {product.sku}</span>
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-charcoal/80 font-mono mb-1">
+              <div className="flex items-center space-x-2">
+                <span>{product.brand || 'MagnifiScent'}</span>
+                <span>•</span>
+                <span>SKU: {product.sku}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="inline-flex items-center space-x-1 text-[10px] text-charcoal hover:text-champagne-dark transition-colors"
+                title={copied ? 'Link Copied!' : 'Share this piece'}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-700" />
+                    <span className="text-emerald-700 font-medium">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-3 h-3" />
+                    <span>Share Piece</span>
+                  </>
+                )}
+              </button>
             </div>
             <h1 className="font-serif text-2xl sm:text-4xl text-espresso-900 font-medium tracking-wide leading-tight">
               {product.name}
@@ -378,15 +442,41 @@ export const ProductDetailPage: React.FC = () => {
                 </button>
               )}
 
-              <a
-                href={buildWhatsAppInquiry()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 border border-stone bg-white hover:bg-ivory-50 text-espresso-900 text-xs uppercase tracking-editorial font-medium transition-colors flex items-center justify-center space-x-2"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-700" />
-                <span>Enquire via WhatsApp Concierge</span>
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={buildWhatsAppInquiry()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 border border-stone bg-white hover:bg-ivory-50 text-espresso-900 text-xs uppercase tracking-editorial font-medium transition-colors flex items-center justify-center space-x-2"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-700" />
+                  <span>Enquire via WhatsApp</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className={`px-4 py-3 border transition-colors flex items-center justify-center space-x-1.5 text-xs uppercase tracking-editorial font-medium shrink-0 ${
+                    copied
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                      : 'border-stone bg-white hover:bg-ivory-50 text-espresso-900'
+                  }`}
+                  title={copied ? 'Link Copied!' : 'Share piece link'}
+                  aria-label="Share or copy piece link"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-700" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4 text-champagne-dark" />
+                      <span>Share</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
