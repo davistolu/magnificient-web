@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { useCart } from '../../context/CartContext.js';
-import { ShoppingBag, Play } from 'lucide-react';
+import { useToast } from '../../context/ToastContext.js';
+import { ShoppingBag, Play, Share2, Check } from 'lucide-react';
 
 interface ProductCardProps {
   product: {
@@ -22,6 +23,8 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addItem } = useCart();
+  const { success } = useToast();
+  const [copied, setCopied] = useState(false);
 
   const primaryImage =
     product.images?.find((img) => img.isPrimary)?.imageUrl ||
@@ -34,6 +37,47 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isSoldOut = product.stockQuantity <= 0;
   const isLowStock = !isSoldOut && product.stockQuantity <= product.lowStockThreshold;
   const isPrimaryVideo = isVideoMedia(primaryImage);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.site';
+    const shareUrl = `${origin}/products/${product.slug}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${product.name} | MagnifiScent Luxury`,
+          text: `Discover ${product.name} at MagnifiScent Luxury Atelier`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      success('Link Copied', `Direct link to "${product.name}" copied to clipboard.`);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      success('Link Copied', `Direct link to "${product.name}" copied to clipboard.`);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -114,6 +158,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           )}
         </div>
 
+        {/* Share & Copy Link Button */}
+        <button
+          type="button"
+          onClick={handleShare}
+          className={`absolute top-3 right-3 p-2 bg-white/95 hover:bg-white text-espresso-900 shadow-sm border transition-all duration-200 z-20 backdrop-blur-xs flex items-center justify-center ${
+            copied
+              ? 'border-emerald-600 text-emerald-700 bg-emerald-50 opacity-100'
+              : 'border-stone/60 hover:border-champagne-dark sm:opacity-0 sm:group-hover:opacity-100'
+          }`}
+          title={copied ? 'Link Copied!' : 'Share piece link'}
+          aria-label={`Share ${product.name}`}
+        >
+          {copied ? (
+            <Check className="w-3.5 h-3.5 text-emerald-700 stroke-[2.5]" />
+          ) : (
+            <Share2 className="w-3.5 h-3.5 stroke-[1.75]" />
+          )}
+        </button>
+
         {/* Stock Alert Badge */}
         {isSoldOut ? (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex items-center justify-center">
@@ -156,15 +219,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </Link>
         </div>
 
-        <div className="mt-3 pt-3 border-t border-stone/40 flex items-baseline space-x-2">
-          <span className="text-sm font-semibold text-espresso-900 font-sans tracking-tight">
-            {formatPrice(product.price)}
-          </span>
-          {product.compareAtPrice && Number(product.compareAtPrice) > Number(product.price) && (
-            <span className="text-xs text-charcoal/60 line-through font-sans">
-              {formatPrice(product.compareAtPrice)}
+        <div className="mt-3 pt-3 border-t border-stone/40 flex items-center justify-between">
+          <div className="flex items-baseline space-x-2">
+            <span className="text-sm font-semibold text-espresso-900 font-sans tracking-tight">
+              {formatPrice(product.price)}
             </span>
-          )}
+            {product.compareAtPrice && Number(product.compareAtPrice) > Number(product.price) && (
+              <span className="text-xs text-charcoal/60 line-through font-sans">
+                {formatPrice(product.compareAtPrice)}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleShare}
+            className="text-stone-muted hover:text-champagne-dark transition-colors p-1"
+            title={copied ? 'Link Copied!' : 'Share or copy piece link'}
+            aria-label={`Share or copy link for ${product.name}`}
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-700" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5" />
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { productCreateSchema } from '../../shared/index.js';
@@ -235,10 +236,17 @@ export async function createProduct(req: Request, res: Response) {
     sku = `MAG-${Date.now().toString().slice(-6)}`;
   }
 
-  const productId = `prod-${Date.now()}`;
+  const category = store.categories.find(
+    (c) => c.id === validated.categoryId ||
+           c.slug.toLowerCase() === validated.categoryId.toLowerCase() ||
+           c.slug.toLowerCase() === validated.categoryId.replace('cat-', '').toLowerCase()
+  );
+  const resolvedCategoryId = category ? category.id : validated.categoryId;
+
+  const productId = crypto.randomUUID();
   const newProduct = {
     id: productId,
-    categoryId: validated.categoryId,
+    categoryId: resolvedCategoryId,
     name: validated.name,
     slug: finalSlug,
     sku,
