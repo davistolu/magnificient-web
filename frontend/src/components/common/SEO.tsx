@@ -73,16 +73,23 @@ export const SEO: React.FC<SEOProps> = ({
     setMetaTag('property', 'og:title', fullTitle);
     setMetaTag('property', 'og:description', description);
     setMetaTag('property', 'og:url', currentUrl);
-    setMetaTag('property', 'og:type', ogType);
-    setMetaTag('property', 'og:image', ogImage.startsWith('http') ? ogImage : `${BASE_URL}${ogImage}`);
+    const fullImageUrl = ogImage.startsWith('http') ? ogImage : `${BASE_URL}${ogImage.startsWith('/') ? '' : '/'}${ogImage}`;
+    setMetaTag('property', 'og:image', fullImageUrl);
+    setMetaTag('property', 'og:image:secure_url', fullImageUrl);
+    setMetaTag('property', 'og:image:width', '1200');
+    setMetaTag('property', 'og:image:height', '630');
+    setMetaTag('property', 'og:image:type', 'image/jpeg');
+    setMetaTag('property', 'og:image:alt', fullTitle);
     setMetaTag('property', 'og:site_name', SITE_NAME);
     setMetaTag('property', 'og:locale', 'en_US');
 
     // 5. Twitter Card
     setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:site', '@magnifiscent');
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', description);
-    setMetaTag('name', 'twitter:image', ogImage.startsWith('http') ? ogImage : `${BASE_URL}${ogImage}`);
+    setMetaTag('name', 'twitter:image', fullImageUrl);
+    setMetaTag('name', 'twitter:image:alt', fullTitle);
 
     // 6. JSON-LD Structured Data
     const scriptId = 'page-structured-data';

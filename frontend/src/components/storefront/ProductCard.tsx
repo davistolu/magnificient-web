@@ -48,8 +48,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${product.name} | MagnifiScent Luxury`,
-          text: `Discover ${product.name} at MagnifiScent Luxury Atelier`,
+          title: `${product.name} | MagnifiScent`,
           url: shareUrl,
         });
         return;

@@ -61,6 +61,7 @@ export function getMediaUrl(url: string | null | undefined): string {
   if (mediaBase && cleanUrl.startsWith('/uploads')) {
     return `${mediaBase.replace(/\/+$/, '')}${cleanUrl}`;
   }
-  return cleanUrl;
+  const defaultOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://magnifiscent.site';
+  return `${defaultOrigin}${cleanUrl}`;
 }
 
