@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useToast } from '../../context/ToastContext.js';
@@ -16,6 +16,7 @@ export const CustomerRegisterPage: React.FC = () => {
     phone: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -131,16 +132,29 @@ export const CustomerRegisterPage: React.FC = () => {
               Private Password * (Min. 8 characters)
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-3 pointer-events-none" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength={8}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="••••••••••••"
-                className="w-full bg-ivory-50 border border-stone pl-9 pr-3.5 py-2.5 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 transition-colors"
+                className="w-full bg-ivory-50 border border-stone pl-9 pr-10 py-2.5 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 p-0.5 text-stone-muted hover:text-espresso-900 transition-colors focus:outline-none"
+                title={showPassword ? 'Hide password' : 'View password'}
+                aria-label={showPassword ? 'Hide password' : 'View password'}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
             </div>
           </div>
 
