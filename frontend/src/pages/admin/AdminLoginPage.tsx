@@ -11,9 +11,15 @@ export const AdminLoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  const { login } = useAuth();
+  const { login, isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { success } = useToast();
+
+  React.useEffect(() => {
+    if (!authLoading && isAdmin) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [isAdmin, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +31,7 @@ export const AdminLoginPage: React.FC = () => {
       if (res.success && res.token && res.user) {
         login(res.token, res.user);
         success('Concierge Authenticated', `Welcome back, ${res.user.fullName}.`);
-        navigate('/admin/dashboard');
+        navigate('/admin/dashboard', { replace: true });
       }
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed. Please verify your credentials.');
