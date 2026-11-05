@@ -2,10 +2,37 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/**": {
+      "includeFiles": "frontend/dist/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/products/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
+        }
+      ],
+      "destination": "/api/og-preview?slug=:slug*"
+    },
+    {
+      "source": "/:category(watches|jewellery|perfumes|gift-sets|shop)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
+        }
+      ],
+      "destination": "/api/og-preview?category=:category"
     },
     {
       "source": "/(.*)",
