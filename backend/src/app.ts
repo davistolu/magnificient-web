@@ -173,11 +173,10 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
     try {
       await store.ensureInitialized();
-      next();
     } catch (err) {
-      console.error('[Store Sync Middleware Error]:', err);
-      next(err);
+      console.warn('[Store Sync Middleware Note]:', (err as Error).message);
     }
+    next();
   });
 
   // API Routes
