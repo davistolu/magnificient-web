@@ -15,6 +15,8 @@ import {
   Lock,
   User,
   ShieldAlert,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 
@@ -43,6 +45,7 @@ export const AdminTeamPage: React.FC = () => {
     password: '',
     role: 'admin',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const loadTeam = async () => {
     setIsLoading(true);
@@ -332,7 +335,7 @@ export const AdminTeamPage: React.FC = () => {
                   <input
                     type="email"
                     required
-                    placeholder="e.g. concierge@magnifiscent.luxury"
+                    placeholder="e.g. concierge@magnifiscent.site"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     className="w-full bg-ivory-50 border border-stone pl-9 pr-3 py-2 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 font-mono"
@@ -361,16 +364,29 @@ export const AdminTeamPage: React.FC = () => {
                   Access Password * (Min 8 Characters)
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 text-stone-muted absolute left-3 top-2.5 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     minLength={8}
                     placeholder="••••••••••••"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="w-full bg-ivory-50 border border-stone pl-9 pr-3 py-2 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 font-mono"
+                    className="w-full bg-ivory-50 border border-stone pl-9 pr-9 py-2 text-xs text-espresso-900 focus:outline-none focus:border-espresso-900 font-mono"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-2 p-0.5 text-stone-muted hover:text-espresso-900 transition-colors focus:outline-none"
+                    title={showPassword ? 'Hide password' : 'View password'}
+                    aria-label={showPassword ? 'Hide password' : 'View password'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
 

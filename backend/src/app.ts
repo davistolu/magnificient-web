@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { config } from './config/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { store } from './database/index.js';
 
 // Route imports
 import authRoutes from './modules/auth/auth.routes.js';
@@ -85,6 +86,79 @@ export function createApp() {
       version: '1.0.0',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // Dynamic SEO XML Sitemap (includes all live products & categories)
+  app.get('/sitemap.xml', (req, res) => {
+    res.setHeader('Content-Type', 'application/xml');
+    const baseUrl = (process.env.FRONTEND_URL || 'https://magnifiscent.site').replace(/\/+$/, '');
+    const staticUrls = [
+      '',
+      '/watches',
+      '/jewellery',
+      '/perfumes',
+      '/gift-sets',
+      '/shop',
+      '/about',
+      '/contact',
+      '/faq',
+      '/track',
+      '/shipping-policy',
+      '/returns-policy',
+      '/privacy',
+      '/terms',
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrls
+  .map(
+    (u) => `  <url>
+    <loc>${baseUrl}${u}</loc>
+    <changefreq>${u === '' || u.startsWith('/watches') || u.startsWith('/jewellery') || u.startsWith('/perfumes') ? 'daily' : 'weekly'}</changefreq>
+    <priority>${u === '' ? '1.0' : u.startsWith('/watches') || u.startsWith('/jewellery') || u.startsWith('/perfumes') ? '0.95' : '0.7'}</priority>
+  </url>`
+  )
+  .join('\n')}
+${store.products
+  .filter((p) => p.status === 'published')
+  .map(
+    (p) => `  <url>
+    <loc>${baseUrl}/products/${p.slug}</loc>
+    <lastmod>${new Date(p.updatedAt || p.createdAt || Date.now()).toISOString().split('T')[0]}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>`
+  )
+  .join('\n')}
+</urlset>`;
+    res.send(xml);
+  });
+
+  // Dynamic robots.txt
+  app.get('/robots.txt', (req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
+    const baseUrl = (process.env.FRONTEND_URL || 'https://magnifiscent.site').replace(/\/+$/, '');
+    res.send(`User-agent: *
+Allow: /
+Allow: /watches
+Allow: /jewellery
+Allow: /perfumes
+Allow: /gift-sets
+Allow: /shop
+Allow: /products/
+Allow: /about
+Allow: /contact
+Allow: /faq
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /payment-instructions/
+
+Sitemap: ${baseUrl}/sitemap.xml
+`);
   });
 
   // Static Public Product Media (Images and Videos)

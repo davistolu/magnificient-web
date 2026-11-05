@@ -37,7 +37,7 @@ export const config = {
   store: {
     name: process.env.STORE_NAME || 'MagnifiScent',
     currency: process.env.STORE_CURRENCY || 'NGN',
-    supportEmail: process.env.SUPPORT_EMAIL || 'concierge@magnifiscent.luxury',
+    supportEmail: process.env.SUPPORT_EMAIL || 'concierge@magnifiscent.site',
     whatsappNumber: process.env.WHATSAPP_NUMBER || '+2348000000000',
   },
 };

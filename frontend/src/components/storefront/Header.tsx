@@ -126,9 +126,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             <div className="flex-1 text-center lg:flex-none lg:text-left flex items-center justify-center lg:justify-start">
               <Link to="/" className="inline-flex items-center space-x-2.5 sm:space-x-3 group py-1">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="MagnifiScent Luxury"
-                  className="h-10 sm:h-11 md:h-12 w-auto object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-105"
+                  className="h-10 sm:h-11 md:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="text-left">
                   <span className="font-serif text-lg sm:text-2xl font-medium tracking-widest text-espresso-900 group-hover:text-champagne-dark transition-colors block leading-none">
@@ -227,9 +227,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   className="flex items-center space-x-2.5"
                 >
                   <img
-                    src="/logo.jpg"
+                    src="/logo.png"
                     alt="MagnifiScent"
-                    className="h-9 w-auto object-contain mix-blend-multiply"
+                    className="h-9 sm:h-10 w-auto object-contain"
                   />
                   <div>
                     <span className="font-serif text-lg font-medium tracking-widest text-espresso-900 block leading-none">

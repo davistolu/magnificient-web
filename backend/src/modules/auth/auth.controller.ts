@@ -10,10 +10,26 @@ export async function login(req: Request, res: Response) {
   const validated = loginSchema.parse(req.body);
 
   const emailLower = validated.email.trim().toLowerCase();
-  const aliasEmail = emailLower.includes('magnifiscent')
-    ? emailLower.replace('magnifiscent', 'magnificent')
-    : emailLower.replace('magnificent', 'magnifiscent');
+  const candidateEmails = new Set<string>([emailLower]);
 
+  // Brand spelling aliases: magnifiscent <-> magnificent
+  if (emailLower.includes('magnifiscent')) {
+    candidateEmails.add(emailLower.replace('magnifiscent', 'magnificent'));
+  } else if (emailLower.includes('magnificent')) {
+    candidateEmails.add(emailLower.replace('magnificent', 'magnifiscent'));
+  }
+
+  // Domain aliases: .site <-> .luxury
+  const currentCandidates = Array.from(candidateEmails);
+  for (const cand of currentCandidates) {
+    if (cand.includes('.site')) {
+      candidateEmails.add(cand.replace('.site', '.luxury'));
+    } else if (cand.includes('.luxury')) {
+      candidateEmails.add(cand.replace('.luxury', '.site'));
+    }
+  }
+
+  const emailList = Array.from(candidateEmails);
   let user: any = null;
 
   // 1. Check PostgreSQL pool if available
@@ -24,9 +40,9 @@ export async function login(req: Request, res: Response) {
         const result = await client.query(
           `SELECT id, full_name as "fullName", email, phone, password_hash as "passwordHash", role, is_active as "isActive"
            FROM users
-           WHERE LOWER(email) = $1 OR LOWER(email) = $2
-           ORDER BY (LOWER(email) = $1) DESC LIMIT 1`,
-          [emailLower, aliasEmail]
+           WHERE LOWER(email) = ANY($1::text[])
+           ORDER BY (LOWER(email) = $2) DESC LIMIT 1`,
+          [emailList, emailLower]
         );
         if (result.rows.length > 0) {
           user = result.rows[0];
@@ -41,9 +57,7 @@ export async function login(req: Request, res: Response) {
 
   // 2. Fallback to local store
   if (!user) {
-    user = store.users.find(
-      (u) => u.email.toLowerCase() === emailLower || u.email.toLowerCase() === aliasEmail
-    );
+    user = store.users.find((u) => emailList.includes(u.email.toLowerCase()));
   }
 
   if (!user || !user.isActive) {

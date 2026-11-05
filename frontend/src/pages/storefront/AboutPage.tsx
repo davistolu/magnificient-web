@@ -1,10 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Compass, Gem, Clock } from 'lucide-react';
+import { SEO } from '../../components/common/SEO.js';
 
 export const AboutPage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 space-y-16">
+      <SEO
+        title="Our Philosophy & Atelier Heritage | MagnifiScent Luxury"
+        description="Learn about MagnifiScent — an independent luxury sanctuary dedicated to horology, bespoke jewellery, and artisanal perfumes."
+        canonical="https://magnifiscent.site/about"
+        breadcrumbs={[
+          { name: 'Home', url: '/' },
+          { name: 'About Atelier', url: '/about' },
+        ]}
+      />
       {/* Editorial Header */}
       <div className="text-center max-w-2xl mx-auto space-y-3">
         <span className="text-[10px] uppercase tracking-widest text-champagne-dark font-semibold font-mono">

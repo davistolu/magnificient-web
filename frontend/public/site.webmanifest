@@ -1,0 +1,17 @@
+{
+  "name": "MagnifiScent Luxury",
+  "short_name": "MagnifiScent",
+  "description": "Purveyors of Haute Horlogerie, Fine Jewellery & Artisanal Fragrances",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171412",
+  "theme_color": "#C5A880",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
