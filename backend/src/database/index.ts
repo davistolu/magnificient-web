@@ -23,7 +23,7 @@ try {
         : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000,
     });
 
     pool.on('error', (err) => {
@@ -41,8 +41,18 @@ try {
 export class DataStore {
   users: any[] = [];
   categories: any[] = [...INITIAL_CATEGORIES];
-  products: any[] = [];
-  productImages: any[] = [];
+  products: any[] = [...INITIAL_PRODUCTS];
+  productImages: any[] = INITIAL_PRODUCTS.flatMap((p) =>
+    (p.images || []).map((img: any, i: number) => ({
+      id: `img-${p.id}-${i}`,
+      productId: p.id,
+      imageUrl: img.imageUrl,
+      altText: img.altText,
+      displayOrder: img.displayOrder || i,
+      isPrimary: Boolean(img.isPrimary),
+      createdAt: new Date(),
+    }))
+  );
   orders: any[] = [];
   orderItems: any[] = [];
   paymentSubmissions: any[] = [];
@@ -57,9 +67,7 @@ export class DataStore {
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.ensureInitialized().catch((err) => {
-      console.warn('[Database] Initial background sync note:', err.message);
-    });
+    this.ensureInitialized().catch(() => {});
   }
 
   public async ensureInitialized(): Promise<void> {
@@ -67,14 +75,16 @@ export class DataStore {
     if (!this.initPromise) {
       this.initPromise = (async () => {
         if (pool) {
-          await this.loadFromPostgres();
-          this.isLoaded = true;
+          try {
+            await this.loadFromPostgres();
+            this.isLoaded = true;
+          } catch (err) {
+            console.warn('[Database] PostgreSQL sync notice (serving active baseline):', (err as Error).message);
+            // Clear initPromise so subsequent requests can re-attempt PostgreSQL sync
+            this.initPromise = null;
+          }
         }
-      })().catch((err) => {
-        this.initPromise = null; // allow retry on next request
-        console.warn('[Database] PostgreSQL sync attempt failed, will retry on demand:', err.message);
-        throw err;
-      });
+      })();
     }
     await this.initPromise;
   }

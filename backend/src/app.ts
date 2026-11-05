@@ -25,6 +25,7 @@ import notificationRoutes from './modules/notifications/notifications.routes.js'
 import newsletterRoutes from './modules/newsletter/newsletter.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import teamRoutes from './modules/admin-team/team.routes.js';
+import ogRoutes from './modules/og/og.routes.js';
 
 export function createApp() {
   const app = express();
@@ -172,11 +173,10 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
     try {
       await store.ensureInitialized();
-      next();
     } catch (err) {
-      console.error('[Store Sync Middleware Error]:', err);
-      next(err);
+      console.warn('[Store Sync Middleware Note]:', (err as Error).message);
     }
+    next();
   });
 
   // API Routes
@@ -197,6 +197,8 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.use('/api/newsletter', newsletterRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/admin/team', teamRoutes);
+  app.use('/api/og-preview', ogRoutes);
+  app.use('/api/og', ogRoutes);
 
   // 404 Handler for undefined API routes
   app.use('/api/*', (req, res) => {
