@@ -81,12 +81,16 @@ frontend/
 - **Category Deep Links**: Instant access to Swiss wristwatches, fine jewellery, artisanal fragrances, and gift suites.
 - **Cart Ribbon**: Slide-over bag showing line items, selected options, and direct wire checkout buttons.
 
-### B. SEO & Google Sitelinks Integration
-- Integrated [`SEO.tsx`](file:///src/components/common/SEO.tsx) dynamically synchronizes:
-  - Page `<title>` and `<meta name="description">`
-  - Canonical link tags mapped to `https://magnifiscent.site`
-  - Open Graph tags (`og:title`, `og:image`, `og:description`, `og:url`) for WhatsApp, iMessage, and Twitter
-  - Schema.org structured data (`WebSite`, `Product`, `Offer`, `BreadcrumbList`, `SiteNavigationElement`)
+### B. Build-Time Static SEO Pre-rendering & Social Link Previews
+- **Instant Social Unfurling**: WhatsApp, iMessage, Twitter, Facebook, Telegram, and Discord crawlers never execute client JavaScript. MagnifiScent runs [`scripts/prerender-seo.js`](file:///frontend/scripts/prerender-seo.js) after `vite build` to generate static `dist/products/:slug/index.html` and `dist/:category/index.html` files.
+- Each pre-rendered route features:
+  - Exact piece title and price formatted in Naira (`₦1,850,000 — Classic dress watch...`)
+  - Absolute HTTPS Open Graph image (`og:image`, `og:image:secure_url`, 1200x630)
+  - Complete Open Graph tags (`og:site_name`, `og:type="product"`, `product:price:amount`, `product:availability`)
+  - Large Twitter Cards (`summary_large_image`)
+  - Google Sitelinks and Schema.org `Product` JSON-LD graphs
+  - Preserved Vite React SPA script bundle so real human visitors experience seamless client-side hydration without page reloads.
+- Integrated [`SEO.tsx`](file:///frontend/src/components/common/SEO.tsx) dynamically updates document titles and meta tags as clients navigate between pieces in their browser.
 
 ### C. Operations Portal & Personnel Management
 - **Instant Product Deletion**: Administrators can immediately delete or archive products with custom luxury dialogs, eliminating browser-native `window.confirm` popups.
@@ -102,9 +106,9 @@ Create a `frontend/.env` file or configure these variables in your hosting provi
 
 | Variable | Required | Description | Example / Default |
 | :--- | :---: | :--- | :--- |
-| `VITE_API_URL` | **Yes** | Base endpoint for the backend API | `https://api.magnifiscent.site/api` |
+| `VITE_API_URL` | **Yes** | Base endpoint for the backend API | `https://backend-seven-delta-62.vercel.app/api` |
 | `VITE_STORE_URL` | Optional | Canonical storefront URL for sharing links | `https://magnifiscent.site` |
-| `VITE_BACKEND_URL` | Optional | Base URL for resolving relative media files | `https://api.magnifiscent.site` |
+| `VITE_BACKEND_URL` | Optional | Base URL for resolving relative media files | `https://backend-seven-delta-62.vercel.app` |
 | `VITE_WHATSAPP_NUMBER`| Optional | Luxury concierge WhatsApp hotline (E.164) | `+2348000000000` |
 
 ---

@@ -2,15 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "frontend/dist",
-  "functions": {
-    "api/**": {
-      "includeFiles": "frontend/dist/**"
-    }
-  },
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "https://backend-seven-delta-62.vercel.app/api/$1"
     },
     {
       "source": "/products/:slug*",
@@ -21,7 +17,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
         }
       ],
-      "destination": "/api/og-preview?slug=:slug*"
+      "destination": "https://backend-seven-delta-62.vercel.app/api/og-preview?slug=:slug*"
     },
     {
       "source": "/:category(watches|jewellery|perfumes|gift-sets|shop)",
@@ -32,7 +28,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
         }
       ],
-      "destination": "/api/og-preview?category=:category"
+      "destination": "https://backend-seven-delta-62.vercel.app/api/og-preview?category=:category"
     },
     {
       "source": "/(.*)",
