@@ -166,13 +166,24 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.use('/uploads/products', express.static(config.storage.productsDir));
   app.use('/uploads', express.static(path.resolve('./uploads')));
 
+  // Disable HTTP caching on all /api routes to prevent browsers, proxies, and CDN edge from caching dynamic data
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    next();
+  });
+
   // Ensure PostgreSQL DataStore is fully synchronized before any API request executes
   app.use(async (req, res, next) => {
     if (req.path === '/health' || req.path === '/robots.txt') {
       return next();
     }
     try {
-      await store.ensureInitialized();
+      // Admin requests or authenticated requests require the absolute latest database state
+      const maxAge = req.path.startsWith('/api/admin') || req.headers.authorization ? 500 : 1500;
+      await store.ensureFresh(maxAge);
     } catch (err) {
       console.warn('[Store Sync Middleware Note]:', (err as Error).message);
     }

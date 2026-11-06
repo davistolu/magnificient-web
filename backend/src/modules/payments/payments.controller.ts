@@ -147,6 +147,7 @@ export async function submitReceipt(req: Request, res: Response) {
 }
 
 export async function getVerificationQueue(req: Request, res: Response) {
+  await store.ensureFresh(0);
   const pendingSubmissions = store.paymentSubmissions
     .filter((s) => s.status === 'pending')
     .map((s) => {
@@ -175,7 +176,11 @@ export async function getVerificationQueue(req: Request, res: Response) {
 export async function verifyPayment(req: Request, res: Response) {
   const validated = paymentVerificationSchema.parse(req.body);
 
-  const submission = store.paymentSubmissions.find((s) => s.id === validated.submissionId);
+  let submission = store.paymentSubmissions.find((s) => s.id === validated.submissionId);
+  if (!submission) {
+    await store.ensureFresh(0);
+    submission = store.paymentSubmissions.find((s) => s.id === validated.submissionId);
+  }
   if (!submission) {
     throw new AppError('Payment submission record not found', 404);
   }

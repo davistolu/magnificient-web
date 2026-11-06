@@ -65,62 +65,156 @@ export class DataStore {
   newsletter: Set<string> = new Set();
   private isLoaded = false;
   private initPromise: Promise<void> | null = null;
+  private lastSyncedAt = 0;
 
   constructor() {
-    this.ensureInitialized().catch(() => {});
+    this.ensureFresh(0).catch(() => {});
+  }
+
+  public async ensureFresh(maxAgeMs = 1500): Promise<void> {
+    const isStale = Date.now() - this.lastSyncedAt > maxAgeMs;
+    if (!this.isLoaded || isStale) {
+      if (!this.initPromise) {
+        this.initPromise = (async () => {
+          if (pool) {
+            try {
+              await this.loadFromPostgres();
+            } catch (err) {
+              console.warn('[Database] PostgreSQL sync notice (serving active baseline):', (err as Error).message);
+            } finally {
+              this.initPromise = null;
+            }
+          }
+        })();
+      }
+      await this.initPromise;
+    }
   }
 
   public async ensureInitialized(): Promise<void> {
-    if (this.isLoaded) return;
-    if (!this.initPromise) {
-      this.initPromise = (async () => {
-        if (pool) {
-          try {
-            await this.loadFromPostgres();
-            this.isLoaded = true;
-          } catch (err) {
-            console.warn('[Database] PostgreSQL sync notice (serving active baseline):', (err as Error).message);
-            // Clear initPromise so subsequent requests can re-attempt PostgreSQL sync
-            this.initPromise = null;
-          }
-        }
-      })();
-    }
-    await this.initPromise;
+    return this.ensureFresh(1500);
   }
 
   public async initStore() {
-    await this.ensureInitialized();
+    await this.ensureFresh(0);
   }
 
   public async loadFromPostgres() {
     if (!pool) return;
-    const client = await pool.connect();
     try {
+      const [
+        usersRes,
+        catResInitial,
+        prodRes,
+        imgRes,
+        orderRes,
+        itemsRes,
+        payRes,
+        histRes,
+        invRes,
+        setRes,
+        discRes,
+        audRes,
+        notifRes,
+      ] = await Promise.all([
+        pool.query(`
+          SELECT id, full_name as "fullName", email, phone, password_hash as "passwordHash",
+                 role, is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
+          FROM users ORDER BY created_at ASC
+        `),
+        pool.query(`
+          SELECT id, name, slug, description, image_url as "imageUrl",
+                 is_active as "isActive", display_order as "displayOrder",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM categories ORDER BY display_order ASC
+        `),
+        pool.query(`
+          SELECT id, category_id as "categoryId", name, slug, sku, short_description as "shortDescription",
+                 description, price::float, compare_at_price::float as "compareAtPrice",
+                 stock_quantity as "stockQuantity", low_stock_threshold as "lowStockThreshold",
+                 status, is_featured as "isFeatured", brand, gender, specifications, tags, occasion,
+                 seo_title as "seoTitle", seo_description as "seoDescription",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM products ORDER BY created_at DESC
+        `),
+        pool.query(`
+          SELECT id, product_id as "productId", image_url as "imageUrl", alt_text as "altText",
+                 display_order as "displayOrder", is_primary as "isPrimary", created_at as "createdAt"
+          FROM product_images ORDER BY display_order ASC
+        `),
+        pool.query(`
+          SELECT id, order_number as "orderNumber", guest_access_token as "guestAccessToken",
+                 customer_id as "customerId", customer_name as "customerName", customer_email as "customerEmail",
+                 customer_phone as "customerPhone", delivery_address as "deliveryAddress",
+                 delivery_city as "deliveryCity", delivery_state as "deliveryState",
+                 delivery_instructions as "deliveryInstructions", subtotal::float,
+                 discount_amount::float as "discountAmount", shipping_amount::float as "shippingAmount",
+                 total_amount::float as "totalAmount", currency, payment_method as "paymentMethod",
+                 payment_status as "paymentStatus", order_status as "orderStatus",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM orders ORDER BY created_at DESC
+        `),
+        pool.query(`
+          SELECT id, order_id as "orderId", product_id as "productId",
+                 product_name_snapshot as "productNameSnapshot", sku_snapshot as "skuSnapshot",
+                 unit_price::float as "unitPrice", quantity, line_total::float as "lineTotal",
+                 selected_options_snapshot as "selectedOptionsSnapshot",
+                 product_image_snapshot as "productImageSnapshot", created_at as "createdAt"
+          FROM order_items ORDER BY created_at ASC
+        `),
+        pool.query(`
+          SELECT id, order_id as "orderId", receipt_storage_key as "receiptStorageKey",
+                 original_filename as "originalFilename", mime_type as "mimeType",
+                 file_size as "fileSize", submitted_amount::float as "submittedAmount",
+                 payment_reference as "paymentReference", status, rejection_reason as "rejectionReason",
+                 reviewed_by as "reviewedBy", reviewed_at as "reviewedAt",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM payment_submissions ORDER BY created_at DESC
+        `),
+        pool.query(`
+          SELECT id, order_id as "orderId", previous_status as "previousStatus",
+                 new_status as "newStatus", changed_by as "changedBy", note, created_at as "createdAt"
+          FROM order_status_history ORDER BY created_at ASC
+        `),
+        pool.query(`
+          SELECT id, product_id as "productId", quantity_change as "quantityChange",
+                 movement_type as "movementType", reason, reference_id as "referenceId",
+                 created_by as "createdBy", created_at as "createdAt"
+          FROM inventory_movements ORDER BY created_at DESC
+        `),
+        pool.query(`SELECT key, value FROM store_settings`),
+        pool.query(`
+          SELECT id, code, discount_type as "discountType", discount_value::float as "discountValue",
+                 min_order_amount::float as "minOrderAmount", usage_limit as "usageLimit",
+                 usage_count as "usageCount", is_active as "isActive", expires_at as "expiresAt",
+                 created_at as "createdAt"
+          FROM discounts ORDER BY created_at DESC
+        `),
+        pool.query(`
+          SELECT id, actor_id as "actorId", actor_name as "actorName", action,
+                 resource_type as "resourceType", resource_id as "resourceId",
+                 metadata, created_at as "createdAt"
+          FROM audit_logs ORDER BY created_at DESC LIMIT 100
+        `),
+        pool.query(`
+          SELECT id, recipient_role as "recipientRole", title, message, type,
+                 is_read as "isRead", order_id as "orderId", created_at as "createdAt"
+          FROM notifications ORDER BY created_at DESC LIMIT 100
+        `),
+      ]);
+
       // 1. Users
-      const usersRes = await client.query(`
-        SELECT id, full_name as "fullName", email, phone, password_hash as "passwordHash",
-               role, is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
-        FROM users ORDER BY created_at ASC
-      `);
       this.users = usersRes.rows.map((u) => ({
         ...u,
         isActive: Boolean(u.isActive),
       }));
 
       // 2. Categories
-      let catRes = await client.query(`
-        SELECT id, name, slug, description, image_url as "imageUrl",
-               is_active as "isActive", display_order as "displayOrder",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM categories ORDER BY display_order ASC
-      `);
-
-      // If categories table in PostgreSQL is empty, auto-populate the core luxury categories
+      let catRes = catResInitial;
       if (catRes.rows.length === 0) {
         console.log('[Database] Categories table empty in PostgreSQL. Initializing core luxury taxonomy...');
         for (const cat of INITIAL_CATEGORIES) {
-          await client.query(`
+          await pool.query(`
             INSERT INTO categories (name, slug, description, image_url, display_order, is_active)
             VALUES ($1, $2, $3, $4, $5, true)
             ON CONFLICT (slug) DO UPDATE SET
@@ -130,30 +224,19 @@ export class DataStore {
               display_order = EXCLUDED.display_order
           `, [cat.name, cat.slug, cat.description, cat.imageUrl, cat.displayOrder]);
         }
-
-        catRes = await client.query(`
+        catRes = await pool.query(`
           SELECT id, name, slug, description, image_url as "imageUrl",
                  is_active as "isActive", display_order as "displayOrder",
                  created_at as "createdAt", updated_at as "updatedAt"
           FROM categories ORDER BY display_order ASC
         `);
       }
-
       this.categories = catRes.rows.map((c) => ({
         ...c,
         isActive: Boolean(c.isActive),
       }));
 
       // 3. Products
-      const prodRes = await client.query(`
-        SELECT id, category_id as "categoryId", name, slug, sku, short_description as "shortDescription",
-               description, price::float, compare_at_price::float as "compareAtPrice",
-               stock_quantity as "stockQuantity", low_stock_threshold as "lowStockThreshold",
-               status, is_featured as "isFeatured", brand, gender, specifications, tags, occasion,
-               seo_title as "seoTitle", seo_description as "seoDescription",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM products ORDER BY created_at DESC
-      `);
       this.products = prodRes.rows.map((p) => ({
         ...p,
         isFeatured: Boolean(p.isFeatured),
@@ -163,114 +246,53 @@ export class DataStore {
       }));
 
       // 4. Product Images
-      const imgRes = await client.query(`
-        SELECT id, product_id as "productId", image_url as "imageUrl", alt_text as "altText",
-               display_order as "displayOrder", is_primary as "isPrimary", created_at as "createdAt"
-        FROM product_images ORDER BY display_order ASC
-      `);
       this.productImages = imgRes.rows.map((img) => ({
         ...img,
         isPrimary: Boolean(img.isPrimary),
       }));
 
       // 5. Orders
-      const orderRes = await client.query(`
-        SELECT id, order_number as "orderNumber", guest_access_token as "guestAccessToken",
-               customer_id as "customerId", customer_name as "customerName", customer_email as "customerEmail",
-               customer_phone as "customerPhone", delivery_address as "deliveryAddress",
-               delivery_city as "deliveryCity", delivery_state as "deliveryState",
-               delivery_instructions as "deliveryInstructions", subtotal::float,
-               discount_amount::float as "discountAmount", shipping_amount::float as "shippingAmount",
-               total_amount::float as "totalAmount", currency, payment_method as "paymentMethod",
-               payment_status as "paymentStatus", order_status as "orderStatus",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM orders ORDER BY created_at DESC
-      `);
       this.orders = orderRes.rows;
 
       // 6. Order Items
-      const itemsRes = await client.query(`
-        SELECT id, order_id as "orderId", product_id as "productId",
-               product_name_snapshot as "productNameSnapshot", sku_snapshot as "skuSnapshot",
-               unit_price::float as "unitPrice", quantity, line_total::float as "lineTotal",
-               selected_options_snapshot as "selectedOptionsSnapshot",
-               product_image_snapshot as "productImageSnapshot", created_at as "createdAt"
-        FROM order_items ORDER BY created_at ASC
-      `);
       this.orderItems = itemsRes.rows;
 
       // 7. Payment Submissions
-      const payRes = await client.query(`
-        SELECT id, order_id as "orderId", receipt_storage_key as "receiptStorageKey",
-               original_filename as "originalFilename", mime_type as "mimeType",
-               file_size as "fileSize", submitted_amount::float as "submittedAmount",
-               payment_reference as "paymentReference", status, rejection_reason as "rejectionReason",
-               reviewed_by as "reviewedBy", reviewed_at as "reviewedAt",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM payment_submissions ORDER BY created_at DESC
-      `);
       this.paymentSubmissions = payRes.rows;
 
       // 8. Order Status History
-      const histRes = await client.query(`
-        SELECT id, order_id as "orderId", previous_status as "previousStatus",
-               new_status as "newStatus", changed_by as "changedBy", note, created_at as "createdAt"
-        FROM order_status_history ORDER BY created_at ASC
-      `);
       this.orderStatusHistory = histRes.rows;
 
       // 9. Inventory Movements
-      const invRes = await client.query(`
-        SELECT id, product_id as "productId", quantity_change as "quantityChange",
-               movement_type as "movementType", reason, reference_id as "referenceId",
-               created_by as "createdBy", created_at as "createdAt"
-        FROM inventory_movements ORDER BY created_at DESC
-      `);
       this.inventoryMovements = invRes.rows;
 
       // 10. Store Settings
-      const setRes = await client.query(`SELECT key, value FROM store_settings`);
       this.storeSettings.clear();
       for (const row of setRes.rows) {
         this.storeSettings.set(row.key, typeof row.value === 'string' ? JSON.parse(row.value) : row.value);
       }
 
       // 11. Discounts
-      const discRes = await client.query(`
-        SELECT id, code, discount_type as "discountType", discount_value::float as "discountValue",
-               min_order_amount::float as "minOrderAmount", usage_limit as "usageLimit",
-               usage_count as "usageCount", is_active as "isActive", expires_at as "expiresAt",
-               created_at as "createdAt"
-        FROM discounts ORDER BY created_at DESC
-      `);
       this.discounts = discRes.rows.map((d) => ({
         ...d,
         isActive: Boolean(d.isActive),
       }));
 
       // 12. Audit Logs
-      const audRes = await client.query(`
-        SELECT id, actor_id as "actorId", actor_name as "actorName", action,
-               resource_type as "resourceType", resource_id as "resourceId",
-               metadata, created_at as "createdAt"
-        FROM audit_logs ORDER BY created_at DESC LIMIT 100
-      `);
       this.auditLogs = audRes.rows;
 
       // 13. Notifications
-      const notifRes = await client.query(`
-        SELECT id, recipient_role as "recipientRole", title, message, type,
-               is_read as "isRead", order_id as "orderId", created_at as "createdAt"
-        FROM notifications ORDER BY created_at DESC LIMIT 100
-      `);
       this.notifications = notifRes.rows.map((n) => ({
         ...n,
         isRead: Boolean(n.isRead),
       }));
 
-      console.log(`[Database] PostgreSQL sync complete: ${this.users.length} users, ${this.products.length} products, ${this.categories.length} categories, ${this.orders.length} orders.`);
-    } finally {
-      client.release();
+      this.isLoaded = true;
+      this.lastSyncedAt = Date.now();
+      console.log(`[Database] PostgreSQL live sync complete: ${this.users.length} users, ${this.products.length} products, ${this.categories.length} categories, ${this.orders.length} orders.`);
+    } catch (err) {
+      console.warn('[Database] PostgreSQL sync warning:', (err as Error).message);
+      throw err;
     }
   }
 
@@ -305,6 +327,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async deleteUser(id: string) {
@@ -317,6 +340,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveCategory(category: any) {
@@ -348,6 +372,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveProduct(product: any, images: any[] = []) {
@@ -456,6 +481,7 @@ export class DataStore {
         console.warn('[Postgres saveProduct connect error]:', (poolErr as Error).message);
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   // INSTANT PERMANENT PRODUCT DELETION
@@ -476,6 +502,7 @@ export class DataStore {
         const delRes = await client.query('DELETE FROM products WHERE id = $1', [id]);
         await client.query('COMMIT');
         console.log(`[Database] Permanently deleted product ${id} from PostgreSQL (${delRes.rowCount} rows).`);
+        this.lastSyncedAt = Date.now();
         return true;
       } catch (err) {
         await client.query('ROLLBACK');
@@ -485,6 +512,7 @@ export class DataStore {
         client.release();
       }
     }
+    this.lastSyncedAt = Date.now();
     return true;
   }
 
@@ -566,6 +594,7 @@ export class DataStore {
         client.release();
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async updateOrderStatus(orderId: string, orderStatus: string, paymentStatus?: string) {
@@ -589,6 +618,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async savePaymentSubmission(sub: any) {
@@ -634,6 +664,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveOrderStatusHistory(h: any) {
@@ -658,6 +689,7 @@ export class DataStore {
         console.error('[Postgres saveOrderStatusHistory Error]:', (err as Error).message);
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveInventoryMovement(m: any) {
@@ -675,6 +707,7 @@ export class DataStore {
         console.error('[Postgres saveInventoryMovement Error]:', (err as Error).message);
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveStoreSetting(key: string, value: any) {
@@ -691,6 +724,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveDiscount(d: any) {
@@ -720,6 +754,7 @@ export class DataStore {
         throw err;
       }
     }
+    this.lastSyncedAt = Date.now();
   }
 
   public async saveAuditLog(l: any) {

@@ -23,6 +23,13 @@ export async function listProducts(req: Request, res: Response) {
     status,
   } = req.query;
 
+  // Admin or filtered catalog requests always fetch live state from database
+  if (status || req.user?.role === 'admin' || req.headers.authorization) {
+    await store.ensureFresh(0);
+  } else {
+    await store.ensureFresh(1500);
+  }
+
   let queryList = [...store.products];
 
   // Admin status filter vs public storefront
@@ -144,9 +151,17 @@ export async function listProducts(req: Request, res: Response) {
 
 export async function getProduct(req: Request, res: Response) {
   const { slugOrId } = req.params;
-  const product = store.products.find(
+  let product = store.products.find(
     (p) => p.slug.toLowerCase() === slugOrId.toLowerCase() || p.id === slugOrId
   );
+
+  // If not found in current memory, sync immediately from PostgreSQL
+  if (!product) {
+    await store.ensureFresh(0);
+    product = store.products.find(
+      (p) => p.slug.toLowerCase() === slugOrId.toLowerCase() || p.id === slugOrId
+    );
+  }
 
   if (!product) {
     throw new AppError('Product not found in catalog', 404);
@@ -179,6 +194,7 @@ export async function getProduct(req: Request, res: Response) {
 }
 
 export async function getFeaturedProducts(req: Request, res: Response) {
+  await store.ensureFresh(1500);
   const featured = store.products
     .filter((p) => p.isFeatured && p.status === 'published')
     .slice(0, 6)

@@ -5,6 +5,7 @@ import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 
 export async function getInventoryOverview(req: Request, res: Response) {
+  await store.ensureFresh(0);
   const inventoryList = store.products.map((p) => {
     let stockStatus: 'in_stock' | 'low_stock' | 'out_of_stock' = 'in_stock';
     if (p.stockQuantity <= 0) {
@@ -47,6 +48,7 @@ export async function getInventoryOverview(req: Request, res: Response) {
 export async function getInventoryMovements(req: Request, res: Response) {
   const { productId } = req.query;
 
+  await store.ensureFresh(0);
   let movements = [...store.inventoryMovements];
   if (productId) {
     movements = movements.filter((m) => m.productId === productId);
