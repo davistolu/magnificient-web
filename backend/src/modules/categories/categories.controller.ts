@@ -5,6 +5,7 @@ import { AppError } from '../../middleware/errorHandler.js';
 import { INITIAL_CATEGORIES } from '../../database/seed-data.js';
 
 export async function listCategories(req: Request, res: Response) {
+  await store.ensureFresh(1500);
   let categoriesToUse = store.categories;
   if (!categoriesToUse || categoriesToUse.length === 0) {
     categoriesToUse = INITIAL_CATEGORIES;
@@ -31,9 +32,16 @@ export async function listCategories(req: Request, res: Response) {
 
 export async function getCategory(req: Request, res: Response) {
   const { slug } = req.params;
-  const category = store.categories.find(
+  let category = store.categories.find(
     (c) => c.slug.toLowerCase() === slug.toLowerCase() || c.id === slug
   );
+
+  if (!category) {
+    await store.ensureFresh(0);
+    category = store.categories.find(
+      (c) => c.slug.toLowerCase() === slug.toLowerCase() || c.id === slug
+    );
+  }
 
   if (!category) {
     throw new AppError('Category not found', 404);
