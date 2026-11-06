@@ -27,6 +27,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
+    cache: 'no-store',
     ...options,
     headers,
   });

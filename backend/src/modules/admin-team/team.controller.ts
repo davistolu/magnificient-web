@@ -14,6 +14,9 @@ const createTeamMemberSchema = z.object({
 });
 
 export async function listTeamMembers(req: Request, res: Response) {
+  // Always fetch latest team data from database
+  await store.ensureFresh(0);
+
   // Query all team members
   const team = store.users
     .filter((u) => u.role === 'admin' || u.role === 'staff' || u.role === 'concierge')
@@ -38,6 +41,7 @@ export async function createTeamMember(req: Request, res: Response) {
   const validated = createTeamMemberSchema.parse(req.body);
   const emailLower = validated.email.trim().toLowerCase();
 
+  await store.ensureFresh(0);
   const existing = store.users.find((u) => u.email.toLowerCase() === emailLower);
   if (existing) {
     throw new AppError('An account with this email address already exists.', 400);
@@ -95,7 +99,11 @@ export async function toggleTeamMemberStatus(req: Request, res: Response) {
     throw new AppError('You cannot deactivate your own administrative account.', 400);
   }
 
-  const member = store.users.find((u) => u.id === id);
+  let member = store.users.find((u) => u.id === id);
+  if (!member) {
+    await store.ensureFresh(0);
+    member = store.users.find((u) => u.id === id);
+  }
   if (!member) {
     throw new AppError('Team member not found', 404);
   }
@@ -121,7 +129,11 @@ export async function deleteTeamMember(req: Request, res: Response) {
     throw new AppError('You cannot delete your own administrative account.', 400);
   }
 
-  const member = store.users.find((u) => u.id === id);
+  let member = store.users.find((u) => u.id === id);
+  if (!member) {
+    await store.ensureFresh(0);
+    member = store.users.find((u) => u.id === id);
+  }
   if (!member) {
     throw new AppError('Team member not found', 404);
   }

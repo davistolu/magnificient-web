@@ -13,9 +13,16 @@ export async function trackOrder(req: Request, res: Response) {
     throw new AppError('Order reference number is required to track an order', 400);
   }
 
-  const order = store.orders.find(
+  let order = store.orders.find(
     (o) => o.orderNumber.toUpperCase() === String(orderNumber).trim().toUpperCase()
   );
+
+  if (!order) {
+    await store.ensureFresh(0);
+    order = store.orders.find(
+      (o) => o.orderNumber.toUpperCase() === String(orderNumber).trim().toUpperCase()
+    );
+  }
 
   if (!order) {
     throw new AppError('No order found matching the provided reference number.', 404);
@@ -90,6 +97,7 @@ export async function listOrders(req: Request, res: Response) {
     limit = '15',
   } = req.query;
 
+  await store.ensureFresh(0);
   let queryList = [...store.orders];
 
   if (orderStatus && orderStatus !== 'all') {
@@ -150,7 +158,12 @@ export async function listOrders(req: Request, res: Response) {
 
 export async function getOrderDetails(req: Request, res: Response) {
   const { id } = req.params;
-  const order = store.orders.find((o) => o.id === id || o.orderNumber === id);
+  let order = store.orders.find((o) => o.id === id || o.orderNumber === id);
+
+  if (!order) {
+    await store.ensureFresh(0);
+    order = store.orders.find((o) => o.id === id || o.orderNumber === id);
+  }
 
   if (!order) {
     throw new AppError('Order not found', 404);
