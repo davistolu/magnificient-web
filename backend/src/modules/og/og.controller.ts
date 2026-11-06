@@ -101,6 +101,20 @@ export async function renderOpenGraphPreview(req: Request, res: Response) {
     }
   }
 
+  // Fallback: extract slug or category from req.url if rewrites passed raw path
+  if (!slug && !category && req.url) {
+    const cleanUrl = req.url.split('?')[0];
+    const match = cleanUrl.match(/\/products\/([^\/\?]+)/i);
+    if (match) {
+      slug = match[1];
+    } else {
+      const catMatch = cleanUrl.match(/\/(watches|jewellery|perfumes|gift-sets|shop)/i);
+      if (catMatch) {
+        category = catMatch[1];
+      }
+    }
+  }
+
   if (slug) {
     slug = decodeURIComponent(slug).replace(/^\/+|\/+$/g, '');
   }
@@ -110,22 +124,37 @@ export async function renderOpenGraphPreview(req: Request, res: Response) {
 
   // 1. PRODUCT PREVIEW
   if (slug) {
-    await store.ensureInitialized();
+    await store.ensureFresh(1500);
     let product = store.products.find(
       (p) => p.slug.toLowerCase() === slug.toLowerCase() || p.id === slug
     );
 
-    if (!product && pool) {
+    let productImages = product ? store.productImages.filter((img) => img.productId === product.id) : [];
+
+    // Query Neon PostgreSQL directly if product or images are missing from current memory
+    if ((!product || productImages.length === 0) && pool) {
       try {
-        const pRes = await pool.query(
-          `SELECT id, category_id as "categoryId", name, slug, sku, short_description as "shortDescription",
-                  description, price::float, compare_at_price::float as "compareAtPrice",
-                  stock_quantity as "stockQuantity", status, brand, specifications
-           FROM products WHERE slug = $1 OR id = $1 LIMIT 1`,
-          [slug]
-        );
+        const [pRes, imgRes] = await Promise.all([
+          pool.query(
+            `SELECT id, category_id as "categoryId", name, slug, sku, short_description as "shortDescription",
+                    description, price::float, compare_at_price::float as "compareAtPrice",
+                    stock_quantity as "stockQuantity", status, brand, specifications
+             FROM products WHERE slug = $1 OR id = $1 LIMIT 1`,
+            [slug]
+          ),
+          pool.query(
+            `SELECT image_url as "imageUrl", alt_text as "altText", is_primary as "isPrimary", display_order as "displayOrder"
+             FROM product_images
+             WHERE product_id IN (SELECT id FROM products WHERE slug = $1 OR id = $1)
+             ORDER BY is_primary DESC, display_order ASC`,
+            [slug]
+          ),
+        ]);
         if (pRes.rows.length > 0) {
           product = pRes.rows[0];
+          if (imgRes.rows.length > 0) {
+            productImages = imgRes.rows;
+          }
         }
       } catch (err) {
         console.warn('[OG Preview] Product query error:', (err as Error).message);
@@ -139,7 +168,6 @@ export async function renderOpenGraphPreview(req: Request, res: Response) {
       const shortDesc = product.shortDescription || product.description || 'Exclusive luxury creation by MagnifiScent.';
       const description = `${priceFormatted} — ${shortDesc}`;
 
-      const productImages = store.productImages.filter((img) => img.productId === product.id);
       const stillImage = productImages.find((img) => !/\.(mp4|webm|mov|ogg)($|\?)/i.test(img.imageUrl));
       const rawImg = stillImage?.imageUrl || productImages[0]?.imageUrl || DEFAULT_IMAGE;
       const imageUrl = resolveFullUrl(rawImg, baseUrl);
@@ -214,29 +242,6 @@ interface ProductHtmlParams {
 
 function buildProductHtml(params: ProductHtmlParams): string {
   const { title, description, canonicalUrl, imageUrl, videoUrl, product, priceFormatted } = params;
-
-  const template = getHtmlTemplate();
-  if (template) {
-    let replaced = template
-      .replace(/<title>.*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
-      .replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
-      .replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${canonicalUrl}" />`)
-      .replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/i, `<meta property="og:title" content="${escapeHtml(title)}" />`)
-      .replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/i, `<meta property="og:description" content="${escapeHtml(description)}" />`)
-      .replace(/<meta\s+property="og:image"\s+content=".*?"\s*\/?>/i, `<meta property="og:image" content="${imageUrl}" />\n    <meta property="og:image:secure_url" content="${imageUrl}" />\n    <meta property="og:image:width" content="1200" />\n    <meta property="og:image:height" content="630" />\n    <meta property="og:image:alt" content="${escapeHtml(product.name)}" />`)
-      .replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/i, `<meta property="og:url" content="${canonicalUrl}" />\n    <meta property="og:type" content="product" />\n    <meta property="product:price:amount" content="${product.price}" />\n    <meta property="product:price:currency" content="NGN" />`)
-      .replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(title)}" />`)
-      .replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(description)}" />`)
-      .replace(/<meta\s+name="twitter:image"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:image" content="${imageUrl}" />`);
-
-    if (videoUrl) {
-      replaced = replaced.replace(
-        '</head>',
-        `  <meta property="og:video" content="${videoUrl}" />\n    <meta property="og:video:type" content="video/mp4" />\n  </head>`
-      );
-    }
-    return replaced;
-  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -329,21 +334,6 @@ interface GenericHtmlParams {
 
 function buildGenericHtml(params: GenericHtmlParams): string {
   const { title, description, canonicalUrl, imageUrl } = params;
-
-  const template = getHtmlTemplate();
-  if (template) {
-    return template
-      .replace(/<title>.*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
-      .replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
-      .replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${canonicalUrl}" />`)
-      .replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/i, `<meta property="og:title" content="${escapeHtml(title)}" />`)
-      .replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/i, `<meta property="og:description" content="${escapeHtml(description)}" />`)
-      .replace(/<meta\s+property="og:image"\s+content=".*?"\s*\/?>/i, `<meta property="og:image" content="${imageUrl}" />\n    <meta property="og:image:secure_url" content="${imageUrl}" />\n    <meta property="og:image:width" content="1200" />\n    <meta property="og:image:height" content="630" />`)
-      .replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/i, `<meta property="og:url" content="${canonicalUrl}" />`)
-      .replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(title)}" />`)
-      .replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(description)}" />`)
-      .replace(/<meta\s+name="twitter:image"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:image" content="${imageUrl}" />`);
-  }
 
   return `<!DOCTYPE html>
 <html lang="en">
