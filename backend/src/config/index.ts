@@ -6,11 +6,39 @@ const API_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 dotenv.config({ path: path.join(API_ROOT, '.env') });
 dotenv.config();
 
+function resolvePublicApiUrl(): string {
+  const envUrl = process.env.PUBLIC_API_URL || process.env.VITE_API_URL || process.env.BACKEND_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, '');
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`.replace(/\/+$/, '');
+  }
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    return 'https://backend-seven-delta-62.vercel.app';
+  }
+  return `http://localhost:${process.env.PORT || '5000'}`;
+}
+
+function resolveFrontendUrl(): string {
+  const envUrl = process.env.FRONTEND_URL || process.env.STORE_URL || process.env.VITE_STORE_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    return 'https://magnifiscent.site';
+  }
+  return 'http://localhost:5173';
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '5000', 10),
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  publicApiUrl: process.env.PUBLIC_API_URL || 'http://localhost:5000',
+  frontendUrl: resolveFrontendUrl(),
+  publicApiUrl: resolvePublicApiUrl(),
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/magnifiscent',
   jwt: {
     secret: process.env.JWT_SECRET || 'magnifiscent-luxury-jwt-secret-key-32-chars-min',

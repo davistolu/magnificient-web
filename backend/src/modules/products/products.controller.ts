@@ -7,6 +7,18 @@ import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { verifyFileSignature, verifyBufferSignature } from '../../middleware/upload.js';
 import { storageService } from '../../services/storage.service.js';
+import { config } from '../../config/index.js';
+
+function normalizeImages(images: any[] | undefined): any[] {
+  if (!images || !Array.isArray(images)) return [];
+  const publicBase = config.publicApiUrl.replace(/\/+$/, '');
+  return images.map((img) => ({
+    ...img,
+    imageUrl: typeof img?.imageUrl === 'string' && (img.imageUrl.includes('localhost:') || img.imageUrl.includes('127.0.0.1:'))
+      ? img.imageUrl.replace(/^https?:\/\/[^\/]+/, publicBase)
+      : img.imageUrl,
+  }));
+}
 
 export async function listProducts(req: Request, res: Response) {
   const {
@@ -126,9 +138,11 @@ export async function listProducts(req: Request, res: Response) {
 
   const paginated = queryList.slice(offset, offset + limitNum).map((p) => {
     const categoryObj = store.categories.find((c) => c.id === p.categoryId);
-    const images = store.productImages
-      .filter((img) => img.productId === p.id)
-      .sort((a, b) => a.displayOrder - b.displayOrder);
+    const images = normalizeImages(
+      store.productImages
+        .filter((img) => img.productId === p.id)
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+    );
 
     return {
       ...p,
@@ -168,9 +182,11 @@ export async function getProduct(req: Request, res: Response) {
   }
 
   const categoryObj = store.categories.find((c) => c.id === product.categoryId);
-  const images = store.productImages
-    .filter((img) => img.productId === product.id)
-    .sort((a, b) => a.displayOrder - b.displayOrder);
+  const images = normalizeImages(
+    store.productImages
+      .filter((img) => img.productId === product.id)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+  );
 
   // Find related products in same category
   const related = store.products
@@ -179,7 +195,7 @@ export async function getProduct(req: Request, res: Response) {
     .map((rp) => ({
       ...rp,
       category: categoryObj,
-      images: store.productImages.filter((img) => img.productId === rp.id),
+      images: normalizeImages(store.productImages.filter((img) => img.productId === rp.id)),
     }));
 
   return res.json({
@@ -200,9 +216,11 @@ export async function getFeaturedProducts(req: Request, res: Response) {
     .slice(0, 6)
     .map((p) => {
       const categoryObj = store.categories.find((c) => c.id === p.categoryId);
-      const images = store.productImages
-        .filter((img) => img.productId === p.id)
-        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const images = normalizeImages(
+        store.productImages
+          .filter((img) => img.productId === p.id)
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+      );
       return {
         ...p,
         category: categoryObj,
@@ -283,7 +301,8 @@ export async function createProduct(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  await store.saveProduct(newProduct, validated.images);
+  const sanitizedImages = normalizeImages(validated.images);
+  await store.saveProduct(newProduct, sanitizedImages);
 
   // Record initial inventory movement
   await store.saveInventoryMovement({
@@ -344,7 +363,8 @@ export async function updateProduct(req: Request, res: Response) {
     updatedAt: new Date(),
   };
 
-  const imagesToSave = Array.isArray(updates.images) ? updates.images : store.productImages.filter((img) => img.productId === id);
+  const rawImages = Array.isArray(updates.images) ? updates.images : store.productImages.filter((img) => img.productId === id);
+  const imagesToSave = normalizeImages(rawImages);
   await store.saveProduct(updatedProduct, imagesToSave);
 
   await store.saveAuditLog({
@@ -441,12 +461,17 @@ export async function uploadProductImage(req: Request, res: Response) {
     file.mimetype
   );
 
+  const publicBase = config.publicApiUrl.replace(/\/+$/, '');
+  const finalMediaUrl = typeof uploadResult.url === 'string' && (uploadResult.url.includes('localhost:') || uploadResult.url.includes('127.0.0.1:'))
+    ? uploadResult.url.replace(/^https?:\/\/[^\/]+/, publicBase)
+    : uploadResult.url;
+
   return res.status(201).json({
     success: true,
     message: isVideo ? 'Product video uploaded successfully' : 'Product photograph uploaded successfully',
     data: {
-      imageUrl: uploadResult.url,
-      mediaUrl: uploadResult.url,
+      imageUrl: finalMediaUrl,
+      mediaUrl: finalMediaUrl,
       storage: uploadResult.storage,
       mediaType: isVideo ? 'video' : 'image',
       filename,
