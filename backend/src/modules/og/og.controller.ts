@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { store, pool } from '../../database/index.js';
+import { config } from '../../config/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,13 +54,18 @@ function escapeHtml(str?: string | null): string {
 
 function resolveFullUrl(urlStr: string, baseUrl: string): string {
   if (!urlStr) return `${baseUrl}/logo.png`;
+  const backendBase = (config.publicApiUrl || 'https://backend-seven-delta-62.vercel.app').replace(/\/+$/, '');
+
   if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
-    if (!urlStr.includes('localhost')) {
-      return urlStr.replace(/^http:\/\//i, 'https://');
+    if (urlStr.includes('localhost') || urlStr.includes('127.0.0.1')) {
+      return urlStr.replace(/^https?:\/\/[^\/]+/, backendBase);
     }
-    return urlStr;
+    return urlStr.replace(/^http:\/\//i, 'https://');
   }
   const cleanPath = urlStr.startsWith('/') ? urlStr : `/${urlStr}`;
+  if (cleanPath.startsWith('/api/media/') || cleanPath.startsWith('/uploads/')) {
+    return `${backendBase}${cleanPath}`;
+  }
   return `${baseUrl}${cleanPath}`;
 }
 
