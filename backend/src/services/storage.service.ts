@@ -2,20 +2,43 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { config } from '../config/index.js';
+import { pool } from '../database/index.js';
 
 export interface UploadResult {
   url: string;
   key: string;
-  storage: 's3' | 'local';
+  storage: 's3' | 'database' | 'local' | 'data-uri';
 }
 
 class StorageService {
+  private mediaTableInitialized = false;
+
   private isConfigured(): boolean {
     return Boolean(
       config.s3.bucket &&
       config.s3.accessKeyId &&
       config.s3.secretAccessKey
     );
+  }
+
+  private async ensureMediaTable(): Promise<void> {
+    if (this.mediaTableInitialized || !pool) return;
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS media_files (
+          id TEXT PRIMARY KEY,
+          filename TEXT NOT NULL UNIQUE,
+          mime_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,
+          data BYTEA NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_media_files_filename ON media_files(filename);
+      `);
+      this.mediaTableInitialized = true;
+    } catch (err) {
+      console.warn('[Storage] Table init check:', (err as Error).message);
+    }
   }
 
   /**
@@ -32,7 +55,6 @@ class StorageService {
     const accessKey = config.s3.accessKeyId;
     const secretKey = config.s3.secretAccessKey;
 
-    // Determine host and URL
     let host: string;
     let url: string;
 
@@ -56,7 +78,6 @@ class StorageService {
 
     const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    // Headers
     const headers: Record<string, string> = {
       host,
       'x-amz-date': amzDate,
@@ -70,7 +91,6 @@ class StorageService {
       headers['cache-control'] = 'public, max-age=31536000, immutable';
     }
 
-    // Canonical Request
     const method = 'PUT';
     const canonicalUri = config.s3.endpoint && config.s3.forcePathStyle ? `/${bucket}/${key}` : `/${key}`;
     const canonicalQueryString = '';
@@ -90,7 +110,6 @@ class StorageService {
       contentHash,
     ].join('\n');
 
-    // String to Sign
     const algorithm = 'AWS4-HMAC-SHA256';
     const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
     const stringToSign = [
@@ -100,7 +119,6 @@ class StorageService {
       crypto.createHash('sha256').update(canonicalRequest).digest('hex'),
     ].join('\n');
 
-    // Signature calculation
     const kDate = crypto.createHmac('sha256', `AWS4${secretKey}`).update(dateStamp).digest();
     const kRegion = crypto.createHmac('sha256', kDate).update(region).digest();
     const kService = crypto.createHmac('sha256', kRegion).update('s3').digest();
@@ -110,7 +128,6 @@ class StorageService {
     const authorizationHeader = `${algorithm} Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
     headers['Authorization'] = authorizationHeader;
 
-    // Execute upload via native fetch
     const response = await fetch(url, {
       method: 'PUT',
       headers,
@@ -122,7 +139,6 @@ class StorageService {
       throw new Error(`S3 Bucket upload failed [HTTP ${response.status}]: ${errText || response.statusText}`);
     }
 
-    // Determine final public URL
     if (config.s3.publicUrl) {
       const publicBase = config.s3.publicUrl.replace(/\/+$/, '');
       return `${publicBase}/${key}`;
@@ -132,73 +148,124 @@ class StorageService {
   }
 
   /**
-   * Uploads product media (image or video) to Neon/S3 bucket, or keeps on disk if not configured.
+   * Uploads product media (image or video).
+   * Priority: S3/R2 -> Neon PostgreSQL media_files -> Data URI fallback.
    */
   async uploadProductMedia(
-    localFilePath: string,
+    bufferOrPath: Buffer | string,
     filename: string,
     mimetype: string
   ): Promise<UploadResult> {
+    const buffer = Buffer.isBuffer(bufferOrPath)
+      ? bufferOrPath
+      : fs.readFileSync(bufferOrPath);
+
+    // 1. Cloud Object Storage (S3 / R2 / Tigris)
     if (this.isConfigured()) {
       try {
-        const buffer = fs.readFileSync(localFilePath);
         const key = `products/${filename}`;
         const publicUrl = await this.putObject(key, buffer, mimetype, true);
-
-        // Remove local file to save disk space
-        try {
-          fs.unlinkSync(localFilePath);
-        } catch {
-          // ignore cleanup errors
+        if (typeof bufferOrPath === 'string') {
+          try { fs.unlinkSync(bufferOrPath); } catch { /* ignore */ }
         }
-
         return {
           url: publicUrl,
           key,
           storage: 's3',
         };
       } catch (err) {
-        console.warn('Cloud storage upload error, falling back to local storage:', err);
+        console.warn('[Storage] Cloud storage upload failed, falling back to database:', (err as Error).message);
       }
     }
 
-    // Local disk fallback
-    const relativeUrl = `/uploads/products/${filename}`;
+    // 2. Persistent PostgreSQL Media Storage (Neon Serverless)
+    if (pool) {
+      try {
+        await this.ensureMediaTable();
+        await pool.query(
+          `INSERT INTO media_files (id, filename, mime_type, size_bytes, data, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())
+           ON CONFLICT (id) DO UPDATE SET data = $5, mime_type = $3, size_bytes = $4`,
+          [filename, filename, mimetype, buffer.length, buffer]
+        );
+
+        const baseUrl = (config.publicApiUrl || 'https://backend-seven-delta-62.vercel.app').replace(/\/+$/, '');
+        const mediaUrl = `${baseUrl}/api/media/${filename}`;
+
+        return {
+          url: mediaUrl,
+          key: filename,
+          storage: 'database',
+        };
+      } catch (dbErr) {
+        console.warn('[Storage] PostgreSQL media persistence error:', (dbErr as Error).message);
+      }
+    }
+
+    // 3. Fallback: Self-contained Data URI (prevents broken images in any scenario)
+    const dataUri = `data:${mimetype};base64,${buffer.toString('base64')}`;
     return {
-      url: relativeUrl,
+      url: dataUri,
       key: filename,
-      storage: 'local',
+      storage: 'data-uri',
     };
   }
 
   /**
-   * Uploads payment receipt document to Neon/S3 bucket or local receipts folder.
+   * Uploads payment receipt document to Neon/S3 bucket or PostgreSQL media table.
    */
   async uploadReceipt(
-    localFilePath: string,
+    bufferOrPath: Buffer | string,
     filename: string,
     mimetype: string
   ): Promise<UploadResult> {
+    const buffer = Buffer.isBuffer(bufferOrPath)
+      ? bufferOrPath
+      : fs.readFileSync(bufferOrPath);
+
+    // 1. Cloud Object Storage (S3 / R2 / Tigris)
     if (this.isConfigured()) {
       try {
-        const buffer = fs.readFileSync(localFilePath);
         const key = `receipts/${filename}`;
         const url = await this.putObject(key, buffer, mimetype, false);
-
+        if (typeof bufferOrPath === 'string') {
+          try { fs.unlinkSync(bufferOrPath); } catch { /* ignore */ }
+        }
         return {
           url,
           key,
           storage: 's3',
         };
       } catch (err) {
-        console.warn('Cloud storage receipt upload error, keeping local file:', err);
+        console.warn('[Storage] Cloud storage receipt upload failed, falling back to database:', (err as Error).message);
+      }
+    }
+
+    // 2. Persistent PostgreSQL Media Storage (Neon Serverless)
+    if (pool) {
+      try {
+        await this.ensureMediaTable();
+        await pool.query(
+          `INSERT INTO media_files (id, filename, mime_type, size_bytes, data, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())
+           ON CONFLICT (id) DO UPDATE SET data = $5, mime_type = $3, size_bytes = $4`,
+          [filename, filename, mimetype, buffer.length, buffer]
+        );
+
+        return {
+          url: `/api/receipts/stream/${filename}`,
+          key: filename,
+          storage: 'database',
+        };
+      } catch (dbErr) {
+        console.warn('[Storage] PostgreSQL receipt persistence error:', (dbErr as Error).message);
       }
     }
 
     return {
       url: `/api/receipts/stream/${filename}`,
       key: filename,
-      storage: 'local',
+      storage: 'database',
     };
   }
 }

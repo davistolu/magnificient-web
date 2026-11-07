@@ -26,6 +26,8 @@ import newsletterRoutes from './modules/newsletter/newsletter.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import teamRoutes from './modules/admin-team/team.routes.js';
 import ogRoutes from './modules/og/og.routes.js';
+import mediaRoutes from './modules/media/media.routes.js';
+import { getMediaFile } from './modules/media/media.controller.js';
 
 export function createApp() {
   const app = express();
@@ -162,12 +164,18 @@ Sitemap: ${baseUrl}/sitemap.xml
 `);
   });
 
-  // Static Public Product Media (Images and Videos)
+  // Static Public Product Media (Images and Videos with DB fallback)
   app.use('/uploads/products', express.static(config.storage.productsDir));
   app.use('/uploads', express.static(path.resolve('./uploads')));
+  app.get('/uploads/products/:filename', getMediaFile);
+  app.get('/uploads/receipts/:filename', getMediaFile);
+  app.get('/uploads/:filename', getMediaFile);
 
-  // Disable HTTP caching on all /api routes to prevent browsers, proxies, and CDN edge from caching dynamic data
+  // Disable HTTP caching on dynamic /api routes (exclude static media & og previews)
   app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/media') || req.path.startsWith('/og')) {
+      return next();
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -210,6 +218,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.use('/api/admin/team', teamRoutes);
   app.use('/api/og-preview', ogRoutes);
   app.use('/api/og', ogRoutes);
+  app.use('/api/media', mediaRoutes);
 
   // 404 Handler for undefined API routes
   app.use('/api/*', (req, res) => {

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
+import { optimizeImageForUpload } from '../../utils/imageOptimizer.js';
 
 const FALLBACK_CATEGORIES = [
   { id: 'cat-watches', name: 'Wristwatches', slug: 'watches' },
@@ -235,7 +236,8 @@ export const ProductEditPage: React.FC = () => {
           continue;
         }
 
-        const res = await api.uploadProductImage(file);
+        const fileToUpload = isImage ? await optimizeImageForUpload(file) : file;
+        const res = await api.uploadProductImage(fileToUpload);
         if (res.success && res.data?.imageUrl) {
           uploadedCount++;
           const isUploadedVideo = isVideoMedia(res.data.imageUrl);
