@@ -11,14 +11,14 @@ function resolvePublicApiUrl(): string {
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '');
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, '');
-  }
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`.replace(/\/+$/, '');
   }
   if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
     return 'https://backend-seven-delta-62.vercel.app';
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, '');
   }
   return `http://localhost:${process.env.PORT || '5000'}`;
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/api.js';
-import { formatPrice } from '../../utils/formatters.js';
+import { formatPrice, getMediaUrl } from '../../utils/formatters.js';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -100,7 +100,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                 </p>
                 <div className="divide-y divide-stone/40">
                   {results.map((product) => {
-                    const img = product.images?.[0]?.imageUrl || '';
+                    const isCustom = (url?: string) => Boolean(url && (url.includes('/api/media/') || url.includes('/uploads/') || !url.includes('images.unsplash.com')));
+                    const customImg = product.images?.find((i: any) => isCustom(i.imageUrl))?.imageUrl;
+                    const primaryImg = product.images?.find((i: any) => i.isPrimary)?.imageUrl;
+                    const rawImg = customImg || primaryImg || product.images?.[0]?.imageUrl || '';
+                    const img = getMediaUrl(rawImg);
                     return (
                       <Link
                         key={product.id}

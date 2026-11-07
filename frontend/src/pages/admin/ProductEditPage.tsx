@@ -19,6 +19,8 @@ import {
   Sparkles,
   Play,
   Film,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
@@ -80,13 +82,7 @@ export const ProductEditPage: React.FC = () => {
     brand: 'MagnifiScent',
   });
 
-  const [images, setImages] = useState<Array<{ imageUrl: string; altText: string; isPrimary: boolean }>>([
-    {
-      imageUrl: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=1000&auto=format&fit=crop',
-      altText: 'Primary photograph',
-      isPrimary: true,
-    },
-  ]);
+  const [images, setImages] = useState<Array<{ imageUrl: string; altText: string; isPrimary: boolean }>>([]);
 
   const [specs, setSpecs] = useState<Array<{ key: string; value: string }>>([
     { key: 'Case Material', value: '316L Stainless Steel' },
@@ -242,24 +238,28 @@ export const ProductEditPage: React.FC = () => {
           uploadedCount++;
           const isUploadedVideo = isVideoMedia(res.data.imageUrl);
           setImages((prev) => {
-            const hasPrimary = prev.some((img) => img.isPrimary);
-            // Replace dummy unsplash image if it's the only initial one and clean
-            const filtered = prev.filter((img) => img.imageUrl.trim().length > 0);
+            // Check if existing images are only generic Unsplash stock photos
+            const allAreUnsplash = prev.length > 0 && prev.every((img) => img.imageUrl.includes('images.unsplash.com'));
+            // If previous images were only Unsplash stock photos, replace them with user's real product photo!
+            const baseList = allAreUnsplash ? [] : prev.filter((img) => img.imageUrl.trim().length > 0);
+
+            // Put the newly uploaded photo at the TOP and set it as PRIMARY
+            const demoted = baseList.map((img) => ({ ...img, isPrimary: false }));
             return [
-              ...filtered,
               {
                 imageUrl: res.data.imageUrl,
                 altText: isUploadedVideo
                   ? `Product Video - ${file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')}`
                   : file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-                isPrimary: !hasPrimary && filtered.length === 0,
+                isPrimary: true,
               },
+              ...demoted,
             ];
           });
         }
       }
       if (uploadedCount > 0) {
-        success('Upload Complete', `${uploadedCount} visual asset${uploadedCount > 1 ? 's' : ''} added.`);
+        success('Upload Complete', `${uploadedCount} visual asset${uploadedCount > 1 ? 's' : ''} added and set as primary.`);
       }
     } catch (err: any) {
       error('Upload Error', err.message || 'Failed to upload product media.');
@@ -269,6 +269,27 @@ export const ProductEditPage: React.FC = () => {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleRemoveStockImages = () => {
+    setImages((prev) => {
+      const remaining = prev.filter((img) => !img.imageUrl.includes('images.unsplash.com'));
+      if (remaining.length > 0 && !remaining.some((img) => img.isPrimary)) {
+        remaining[0].isPrimary = true;
+      }
+      return remaining;
+    });
+    success('Stock Photos Removed', 'Cleared demo Unsplash stock photos from this product.');
+  };
+
+  const handleMoveImage = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= images.length) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const item = next.splice(fromIndex, 1)[0];
+      next.splice(toIndex, 0, item);
+      return next;
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -291,7 +312,7 @@ export const ProductEditPage: React.FC = () => {
   const handleAddImage = () => {
     setImages((prev) => [
       ...prev,
-      { imageUrl: '', altText: 'Product angle', isPrimary: false },
+      { imageUrl: '', altText: 'Product angle', isPrimary: prev.length === 0 },
     ]);
   };
 
@@ -816,6 +837,24 @@ export const ProductEditPage: React.FC = () => {
               <span>Primary asset appears on catalog and storefront</span>
             </div>
 
+            {/* Banner to purge demo Unsplash stock photos */}
+            {images.some((img) => img.imageUrl.includes('images.unsplash.com')) && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Demo Unsplash stock photos are present alongside your uploaded photos.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveStockImages}
+                  className="px-2.5 py-1 bg-amber-800 text-white font-semibold text-[10px] uppercase tracking-wider hover:bg-amber-900 transition-colors inline-flex items-center space-x-1 self-start sm:self-auto shrink-0"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remove Demo Stock Photos</span>
+                </button>
+              </div>
+            )}
+
             {images.map((img, idx) => (
               <div
                 key={idx}
@@ -856,7 +895,7 @@ export const ProductEditPage: React.FC = () => {
                     <ImageIcon className="w-6 h-6 text-stone-muted" />
                   )}
                   {img.isPrimary && (
-                    <span className="absolute top-0.5 right-0.5 bg-champagne text-espresso-900 text-[8px] font-bold uppercase px-1 rounded-sm z-10">
+                    <span className="absolute top-0.5 right-0.5 bg-champagne text-espresso-900 text-[8px] font-bold uppercase px-1 rounded-sm z-10 shadow-xs">
                       Main
                     </span>
                   )}
@@ -889,7 +928,7 @@ export const ProductEditPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Primary Selector & Remove Action */}
+                {/* Primary Selector, Reordering & Remove Action */}
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0">
                   <button
                     type="button"
@@ -904,20 +943,40 @@ export const ProductEditPage: React.FC = () => {
                     }`}
                   >
                     <Star className="w-3 h-3" />
-                    <span>{img.isPrimary ? 'Primary Image' : 'Set as Primary'}</span>
+                    <span>{img.isPrimary ? 'Primary (Hero)' : 'Set as Primary'}</span>
                   </button>
 
-                  {images.length > 1 && (
+                  <div className="flex items-center space-x-1">
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMoveImage(idx, idx - 1)}
+                        className="p-1 text-stone-muted hover:text-espresso-900 transition-colors"
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {idx < images.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMoveImage(idx, idx + 1)}
+                        className="p-1 text-stone-muted hover:text-espresso-900 transition-colors"
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveImage(idx)}
-                      className="p-1 text-stone-muted hover:text-red-700 transition-colors inline-flex items-center space-x-1"
+                      className="p-1 text-stone-muted hover:text-red-700 transition-colors inline-flex items-center space-x-1 ml-1"
                       title="Remove image"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span className="sm:hidden text-[10px] text-red-700">Delete</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}

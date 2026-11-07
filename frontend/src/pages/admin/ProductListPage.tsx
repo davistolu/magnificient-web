@@ -183,7 +183,10 @@ export const ProductListPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-stone/40">
                 {products.map((p) => {
-                  const img = p.images?.[0]?.imageUrl || '';
+                  const isCustom = (url?: string) => Boolean(url && (url.includes('/api/media/') || url.includes('/uploads/') || !url.includes('images.unsplash.com')));
+                  const customImg = p.images?.find((i: any) => isCustom(i.imageUrl))?.imageUrl;
+                  const primaryImg = p.images?.find((i: any) => i.isPrimary)?.imageUrl;
+                  const img = customImg || primaryImg || p.images?.[0]?.imageUrl || '';
                   return (
                     <tr key={p.id} className="hover:bg-ivory-50/60 transition-colors">
                       <td className="py-3 px-4">

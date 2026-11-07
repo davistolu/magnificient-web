@@ -12,12 +12,47 @@ import { config } from '../../config/index.js';
 function normalizeImages(images: any[] | undefined): any[] {
   if (!images || !Array.isArray(images)) return [];
   const publicBase = config.publicApiUrl.replace(/\/+$/, '');
-  return images.map((img) => ({
+
+  // 1. Sanitize localhost / IP origins to publicBase
+  const mapped = images.map((img) => ({
     ...img,
     imageUrl: typeof img?.imageUrl === 'string' && (img.imageUrl.includes('localhost:') || img.imageUrl.includes('127.0.0.1:'))
       ? img.imageUrl.replace(/^https?:\/\/[^\/]+/, publicBase)
       : img.imageUrl,
+    isPrimary: Boolean(img?.isPrimary),
   }));
+
+  // 2. Smart Primary Selection:
+  // If the product contains custom uploaded assets (/api/media/ or /uploads/ or non-unsplash),
+  // but the current primary image is a generic Unsplash stock photo, promote the custom uploaded asset to isPrimary!
+  const hasCustom = mapped.some((img) =>
+    typeof img?.imageUrl === 'string' &&
+    (img.imageUrl.includes('/api/media/') || img.imageUrl.includes('/uploads/') || !img.imageUrl.includes('images.unsplash.com'))
+  );
+
+  const currentPrimary = mapped.find((img) => img.isPrimary);
+  const primaryIsUnsplash = Boolean(currentPrimary?.imageUrl?.includes('images.unsplash.com'));
+
+  if (hasCustom && (!currentPrimary || primaryIsUnsplash)) {
+    let firstCustomSet = false;
+    mapped.forEach((img) => {
+      const isCustom = typeof img?.imageUrl === 'string' &&
+        (img.imageUrl.includes('/api/media/') || img.imageUrl.includes('/uploads/') || !img.imageUrl.includes('images.unsplash.com'));
+      if (isCustom && !firstCustomSet) {
+        img.isPrimary = true;
+        firstCustomSet = true;
+      } else if (!isCustom) {
+        img.isPrimary = false;
+      }
+    });
+  }
+
+  // 3. Always sort so the primary image is at index 0, followed by displayOrder
+  return mapped.sort((a, b) => {
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+  });
 }
 
 export async function listProducts(req: Request, res: Response) {
