@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../../services/api.js';
 import { formatPrice } from '../../utils/formatters.js';
+import { optimizeImageForUpload } from '../../utils/imageOptimizer.js';
 import { useToast } from '../../context/ToastContext.js';
 import {
   Copy,
@@ -90,8 +91,9 @@ export const PaymentInstructionsPage: React.FC = () => {
 
     setIsUploading(true);
     try {
+      const fileToUpload = file.type.startsWith('image/') ? await optimizeImageForUpload(file) : file;
       const formData = new FormData();
-      formData.append('receipt', file);
+      formData.append('receipt', fileToUpload);
       formData.append('orderNumber', orderNumber);
       if (token) formData.append('guestAccessToken', token);
       if (submittedAmount) formData.append('submittedAmount', submittedAmount);

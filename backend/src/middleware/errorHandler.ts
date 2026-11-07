@@ -51,8 +51,11 @@ export function errorHandler(
 
   // Fallback internal error
   console.error('[Unhandled Exception]:', err);
+  const safeMessage = err?.message && !err.message.includes('password') && !err.message.includes('postgres:') && !err.message.includes('secret')
+    ? err.message
+    : 'An unexpected error occurred while processing your request. Please try again.';
   return res.status(500).json({
     success: false,
-    message: 'An unexpected error occurred while processing your request. Please try again.',
+    message: safeMessage,
   });
 }
