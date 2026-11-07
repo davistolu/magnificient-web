@@ -125,9 +125,22 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const images = product.images && product.images.length > 0
+  const isCustomImage = (url?: string | null) =>
+    Boolean(url && (url.includes('/api/media/') || url.includes('/uploads/') || !url.includes('images.unsplash.com')));
+
+  const rawImages = product.images && product.images.length > 0
     ? product.images
     : [{ imageUrl: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=1200&auto=format&fit=crop', altText: product.name }];
+
+  const images = [...rawImages].sort((a, b) => {
+    const aCustom = isCustomImage(a.imageUrl);
+    const bCustom = isCustomImage(b.imageUrl);
+    if (aCustom && !bCustom) return -1;
+    if (!aCustom && bCustom) return 1;
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+  });
 
   const currentImage = images[selectedImageIndex] || images[0];
   const isSoldOut = product.stockQuantity <= 0;

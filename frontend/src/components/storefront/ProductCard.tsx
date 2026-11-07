@@ -26,13 +26,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
+  // Prioritize custom uploaded assets over generic stock Unsplash photos
+  const isCustomImage = (url?: string | null) =>
+    Boolean(url && (url.includes('/api/media/') || url.includes('/uploads/') || !url.includes('images.unsplash.com')));
+
+  const customImages = (product.images || []).filter((img) => isCustomImage(img.imageUrl));
+  const customPrimary = customImages.find((img) => img.isPrimary) || customImages[0];
+  const genericPrimary = product.images?.find((img) => img.isPrimary) || product.images?.[0];
+
   const primaryImage =
-    product.images?.find((img) => img.isPrimary)?.imageUrl ||
-    product.images?.[0]?.imageUrl ||
+    customPrimary?.imageUrl ||
+    genericPrimary?.imageUrl ||
     'https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=800&auto=format&fit=crop';
 
-  const secondaryImage =
-    product.images?.[1]?.imageUrl || primaryImage;
+  const otherImages = (product.images || []).filter((img) => img.imageUrl !== primaryImage);
+  const secondaryCustom = otherImages.find((img) => isCustomImage(img.imageUrl));
+  const secondaryImage = secondaryCustom?.imageUrl || otherImages[0]?.imageUrl || primaryImage;
 
   const isSoldOut = product.stockQuantity <= 0;
   const isLowStock = !isSoldOut && product.stockQuantity <= product.lowStockThreshold;
