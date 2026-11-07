@@ -5,7 +5,7 @@ import path from 'path';
 import { productCreateSchema } from '../../shared/index.js';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
-import { verifyFileSignature } from '../../middleware/upload.js';
+import { verifyFileSignature, verifyBufferSignature } from '../../middleware/upload.js';
 import { storageService } from '../../services/storage.service.js';
 
 export async function listProducts(req: Request, res: Response) {
@@ -408,33 +408,37 @@ export async function deleteProduct(req: Request, res: Response) {
 }
 
 export async function uploadProductImage(req: Request, res: Response) {
-  if (!req.file) {
+  const file = req.file;
+  if (!file || (!file.buffer && !file.path)) {
     throw new AppError('No media file uploaded', 400);
   }
 
-  // Validate magic bytes
-  const isValidSignature = verifyFileSignature(req.file.path);
+  const buffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null);
+  if (!buffer) {
+    throw new AppError('Unable to read uploaded media content', 400);
+  }
+
+  // Validate magic bytes directly in RAM
+  const isValidSignature = verifyBufferSignature(buffer);
   if (!isValidSignature) {
-    try {
-      fs.unlinkSync(req.file.path);
-    } catch {
-      // ignore unlink error
-    }
     throw new AppError(
       'Invalid media binary signature. Only genuine JPEG, PNG, WebP, GIF images or MP4, WebM, MOV videos are accepted.',
       400
     );
   }
 
-  const ext = path.extname(req.file.originalname).toLowerCase();
-  const isVideo = req.file.mimetype.startsWith('video/') ||
+  const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
+  const randomHex = crypto.randomBytes(8).toString('hex');
+  const filename = file.filename || `prod_${Date.now()}_${randomHex}${ext}`;
+
+  const isVideo = file.mimetype.startsWith('video/') ||
     ['.mp4', '.webm', '.mov', '.ogg', '.m4v'].includes(ext);
 
-  // Upload to Neon/S3 bucket if configured, or keep on local disk
+  // Upload to S3/R2 bucket or Neon PostgreSQL media_files table
   const uploadResult = await storageService.uploadProductMedia(
-    req.file.path,
-    req.file.filename,
-    req.file.mimetype
+    buffer,
+    filename,
+    file.mimetype
   );
 
   return res.status(201).json({
@@ -445,9 +449,9 @@ export async function uploadProductImage(req: Request, res: Response) {
       mediaUrl: uploadResult.url,
       storage: uploadResult.storage,
       mediaType: isVideo ? 'video' : 'image',
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      size: req.file.size,
+      filename,
+      originalName: file.originalname,
+      size: file.size || buffer.length,
     },
   });
 }

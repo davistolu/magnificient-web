@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { paymentVerificationSchema } from '../../shared/index.js';
 import { store } from '../../database/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
-import { verifyFileSignature } from '../../middleware/upload.js';
+import { verifyFileSignature, verifyBufferSignature } from '../../middleware/upload.js';
 import fs from 'fs';
 import path from 'path';
 import jwt from 'jsonwebtoken';
@@ -47,28 +47,29 @@ export async function getPaymentInstructions(req: Request, res: Response) {
 
 export async function submitReceipt(req: Request, res: Response) {
   const file = req.file;
-  if (!file) {
+  if (!file || (!file.buffer && !file.path)) {
     throw new AppError('Payment receipt file is required (JPEG, PNG, WebP or PDF)', 400);
   }
 
   const { orderNumber, guestAccessToken, submittedAmount, paymentReference } = req.body;
   if (!orderNumber) {
-    // Clean up uploaded file
-    fs.unlinkSync(file.path);
     throw new AppError('Order number is required to associate payment receipt', 400);
   }
 
+  const buffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null);
+  if (!buffer) {
+    throw new AppError('Unable to read uploaded receipt content', 400);
+  }
+
   // 1. Verify file content signature (magic bytes)
-  const isValidSignature = verifyFileSignature(file.path);
+  const isValidSignature = verifyBufferSignature(buffer);
   if (!isValidSignature) {
-    fs.unlinkSync(file.path);
     throw new AppError('File header inspection failed: the uploaded file is not a valid image or PDF document.', 400);
   }
 
   // 2. Find Order
   const order = store.orders.find((o) => o.orderNumber.toUpperCase() === orderNumber.trim().toUpperCase());
   if (!order) {
-    fs.unlinkSync(file.path);
     throw new AppError('Order not found', 404);
   }
 
@@ -78,12 +79,15 @@ export async function submitReceipt(req: Request, res: Response) {
     (req.user && (req.user.id === order.customerId || req.user.role === 'admin'));
 
   if (!isAuthorized) {
-    fs.unlinkSync(file.path);
     throw new AppError('You are not authorized to submit a payment receipt for this order.', 403);
   }
 
-  // 4. Upload receipt to Neon/S3 bucket or local receipts
-  const uploadResult = await storageService.uploadReceipt(file.path, file.filename, file.mimetype);
+  const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
+  const randomHex = crypto.randomBytes(16).toString('hex');
+  const filename = file.filename || `rcpt_${Date.now()}_${randomHex}${ext}`;
+
+  // 4. Upload receipt to S3/R2 bucket or Neon PostgreSQL media_files table
+  const uploadResult = await storageService.uploadReceipt(buffer, filename, file.mimetype);
 
   // 5. Create submission record
   const submissionId = crypto.randomUUID();
