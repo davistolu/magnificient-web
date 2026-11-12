@@ -146,14 +146,6 @@ export const CustomerLoginPage: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5 text-champagne-dark" />
             <span>Encrypted Private Client Session</span>
           </div>
-          <div className="pt-1">
-            <Link
-              to="/admin/login"
-              className="text-[10px] uppercase tracking-editorial text-stone-muted hover:text-charcoal"
-            >
-              Internal Operations Portal &rarr;
-            </Link>
-          </div>
         </div>
       </div>
     </div>
