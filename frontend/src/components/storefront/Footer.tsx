@@ -203,11 +203,6 @@ export const Footer: React.FC = () => {
                   Terms & Conditions
                 </Link>
               </li>
-              <li>
-                <Link to="/admin/login" className="hover:text-champagne transition-colors">
-                  Staff & Concierge Portal
-                </Link>
-              </li>
             </ul>
           </div>
         </div>

@@ -26,7 +26,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { itemCount, setIsCartOpen } = useCart();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
 
   // Close mobile drawer on route change
@@ -170,18 +170,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 <Search className="w-5 h-5 stroke-[1.5]" />
               </button>
 
-              {/* Client Account / Concierge Desk */}
+              {/* Client Account / Sanctuary */}
               <Link
-                to={isAdmin ? '/admin/dashboard' : user ? '/account' : '/login'}
+                to={user ? '/account' : '/login'}
                 className="p-2 text-espresso-800 hover:text-champagne-dark transition-colors relative flex items-center space-x-1"
-                aria-label="Client Sanctuary or Concierge Desk"
-                title={isAdmin ? 'Admin Operations Desk' : user ? `Client Sanctuary (${user.fullName})` : 'Sign In / Register'}
+                aria-label="Client Sanctuary"
+                title={user ? `Client Sanctuary (${user.fullName})` : 'Sign In / Register'}
               >
                 <UserIcon className="w-5 h-5 stroke-[1.5]" />
-                {isAdmin && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-champagne-dark ring-2 ring-ivory-100" />
-                )}
-                {user && !isAdmin && (
+                {user && (
                   <span className="hidden xl:inline text-[11px] font-semibold text-espresso-900 tracking-wider uppercase ml-1">
                     {user.fullName.split(' ')[0]}
                   </span>
@@ -353,11 +350,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Link
-                      to={isAdmin ? '/admin/dashboard' : '/account'}
+                      to="/account"
                       onClick={() => setMobileMenuOpen(false)}
                       className="px-2.5 py-1.5 bg-espresso-900 text-ivory-100 text-[10px] uppercase tracking-wider font-semibold"
                     >
-                      {isAdmin ? 'Admin' : 'Sanctuary'}
+                      Sanctuary
                     </Link>
                     <button
                       onClick={() => {
@@ -418,13 +415,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     className="hover:text-espresso-900 underline"
                   >
                     Privacy
-                  </Link>
-                  <Link
-                    to={isAdmin ? '/admin/dashboard' : '/admin/login'}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="hover:text-espresso-900 text-stone-muted"
-                  >
-                    Desk
                   </Link>
                 </div>
               </div>
