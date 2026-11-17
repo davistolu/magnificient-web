@@ -71,17 +71,16 @@ export async function verifyCart(req: Request, res: Response) {
 
   // Calculate Shipping from Store Settings
   const generalSettings = store.storeSettings.get('general');
-  const shippingSettings = generalSettings?.shipping || {
-    standardFee: 3500,
-    expressFee: 7000,
-    freeShippingThreshold: 150000,
-  };
+  const shippingSettings = generalSettings?.shipping || {};
+  const standardFee = Number(shippingSettings.standardFee ?? shippingSettings.standard_fee ?? 3500);
+  const expressFee = Number(shippingSettings.expressFee ?? shippingSettings.express_fee ?? 7000);
+  const freeThreshold = Number(shippingSettings.freeShippingThreshold ?? shippingSettings.free_shipping_threshold ?? 150000);
 
   let shippingAmount = shippingMethod === 'express'
-    ? shippingSettings.expressFee
-    : shippingSettings.standardFee;
+    ? expressFee
+    : standardFee;
 
-  if (subtotal >= shippingSettings.freeShippingThreshold && shippingMethod === 'standard') {
+  if (subtotal >= freeThreshold && shippingMethod === 'standard') {
     shippingAmount = 0;
   }
 

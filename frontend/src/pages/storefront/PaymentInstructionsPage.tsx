@@ -4,6 +4,7 @@ import { api } from '../../services/api.js';
 import { formatPrice } from '../../utils/formatters.js';
 import { optimizeImageForUpload } from '../../utils/imageOptimizer.js';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 import {
   Copy,
   Check,
@@ -22,6 +23,7 @@ export const PaymentInstructionsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
   const { success, error } = useToast();
+  const { buildWhatsAppUrl } = useSettings();
 
   const [order, setOrder] = useState<any>(null);
   const [bankDetails, setBankDetails] = useState<any>(null);
@@ -307,7 +309,7 @@ export const PaymentInstructionsPage: React.FC = () => {
       {/* Concierge Assistance link */}
       <div className="text-center pt-4">
         <a
-          href={`https://wa.me/2348000000000?text=${encodeURIComponent(`Hello Concierge, I have a question regarding payment for Order ${orderNumber}`)}`}
+          href={buildWhatsAppUrl(`Hello Concierge, I have a question regarding payment for Order ${orderNumber}`)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center space-x-2 text-xs uppercase tracking-editorial text-charcoal hover:text-espresso-900"

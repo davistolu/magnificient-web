@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../services/api.js';
 import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 import {
   CreditCard,
   Building2,
@@ -45,6 +46,12 @@ export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { success, error } = useToast();
+  const {
+    calculateShippingFee,
+    standardShippingFee,
+    expressShippingFee,
+    freeShippingThreshold,
+  } = useSettings();
 
   const passedDiscountCode = (location.state as any)?.discountCode || '';
 
@@ -125,12 +132,7 @@ export const CheckoutPage: React.FC = () => {
   }
 
   const discountAmount = appliedDiscount?.discountAmount || 0;
-  const shippingFee =
-    form.shippingMethod === 'express'
-      ? 7000
-      : subtotal >= 150000
-      ? 0
-      : 3500;
+  const shippingFee = calculateShippingFee(form.shippingMethod, subtotal);
 
   const estimatedTotal = Math.max(0, subtotal - discountAmount + shippingFee);
 
@@ -375,7 +377,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 </div>
                 <span className="text-xs font-mono font-semibold text-espresso-900">
-                  {subtotal >= 150000 ? 'Complimentary' : '₦3,500'}
+                  {subtotal >= freeShippingThreshold ? 'Complimentary' : formatPrice(standardShippingFee)}
                 </span>
               </label>
 
@@ -399,7 +401,7 @@ export const CheckoutPage: React.FC = () => {
                     <p className="text-[11px] text-charcoal">Next day arrival (Lagos & Abuja priority handling)</p>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-semibold text-espresso-900">₦7,000</span>
+                <span className="text-xs font-mono font-semibold text-espresso-900">{formatPrice(expressShippingFee)}</span>
               </label>
             </div>
           </div>

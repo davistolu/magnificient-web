@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { MessageSquare, Mail, MapPin, Phone, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 import { SEO } from '../../components/common/SEO.js';
 
 export const ContactPage: React.FC = () => {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', subject: 'Acquisition Inquiry' });
   const [sent, setSent] = useState(false);
   const { success } = useToast();
+  const { whatsappNumber, cleanWhatsappNumber } = useSettings();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +53,9 @@ export const ContactPage: React.FC = () => {
                 <p className="font-semibold text-espresso-900 uppercase tracking-editorial text-[11px]">
                   WhatsApp Client Desk
                 </p>
-                <p className="mt-0.5">{import.meta.env.VITE_WHATSAPP_NUMBER || '+234 800 000 0000'}</p>
+                <p className="mt-0.5">{whatsappNumber}</p>
                 <a
-                  href={`https://wa.me/${(import.meta.env.VITE_WHATSAPP_NUMBER || '2348000000000').replace(/[^0-9]/g, '')}`}
+                  href={`https://wa.me/${cleanWhatsappNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-800 underline underline-offset-2 mt-1 inline-block"

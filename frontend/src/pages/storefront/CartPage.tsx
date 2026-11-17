@@ -5,11 +5,13 @@ import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.j
 import { Trash2, ArrowRight, MessageSquare, ShoppingBag, Tag, ChevronRight, Play } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 
 export const CartPage: React.FC = () => {
   const { items, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
   const { success, error } = useToast();
+  const { calculateShippingFee, buildWhatsAppUrl } = useSettings();
 
   const [promoCode, setPromoCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
@@ -35,7 +37,7 @@ export const CartPage: React.FC = () => {
   };
 
   const discountAmount = appliedDiscount?.discountAmount || 0;
-  const shippingEstimate = subtotal >= 150000 || subtotal === 0 ? 0 : 3500;
+  const shippingEstimate = calculateShippingFee('standard', subtotal);
   const total = Math.max(0, subtotal - discountAmount + shippingEstimate);
 
   const buildWhatsAppMessage = () => {
@@ -49,7 +51,7 @@ export const CartPage: React.FC = () => {
       `Estimated Total: ${formatPrice(total)}`,
       `\nPlease assist me with external bank wire details or concierge payment.`,
     ].filter(Boolean).join('\n');
-    return `https://wa.me/2348000000000?text=${encodeURIComponent(msg)}`;
+    return buildWhatsAppUrl(msg);
   };
 
   if (items.length === 0) {

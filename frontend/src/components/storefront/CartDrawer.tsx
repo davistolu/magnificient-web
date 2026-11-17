@@ -3,9 +3,11 @@ import { X, Trash2, ArrowRight, MessageSquare, ShoppingBag, Play } from 'lucide-
 import { useCart } from '../../context/CartContext.js';
 import { formatPrice, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 import { Link } from 'react-router-dom';
+import { useSettings } from '../../context/SettingsContext.js';
 
 export const CartDrawer: React.FC = () => {
   const { items, itemCount, subtotal, isCartOpen, setIsCartOpen, updateQuantity, removeItem } = useCart();
+  const { buildWhatsAppUrl } = useSettings();
 
   if (!isCartOpen) return null;
 
@@ -18,7 +20,7 @@ export const CartDrawer: React.FC = () => {
       `\nEstimated Subtotal: ${formatPrice(subtotal)}`,
       `Could you please confirm availability and provide bank transfer or concierge payment instructions?`,
     ].join('\n');
-    return `https://wa.me/2348000000000?text=${encodeURIComponent(text)}`;
+    return buildWhatsAppUrl(text);
   };
 
   return (
