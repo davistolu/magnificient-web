@@ -14,7 +14,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
+          "value": "(?i).*(facebookexternalhit|facebot|twitterbot|telegrambot|linkedinbot|discordbot|applebot|slackbot|skypeuripreview|whatsapp|googlebot|bingbot|pinterest|redditbot|viber|snapchat|instagram|flipboard|quora|yahoo|vkshare|w3c_validator|embedly|outbrain).*"
         }
       ],
       "destination": "https://backend-seven-delta-62.vercel.app/api/og-preview?slug=:slug*"
@@ -25,7 +25,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Applebot|Slackbot|SkypeUriPreview|WhatsApp|Googlebot|bingbot|Pinterest|redditbot|Viber|Snapchat|Instagram|flipboard|quora|yahoo|vkShare|W3C_Validator|embedly|outbrain).*"
+          "value": "(?i).*(facebookexternalhit|facebot|twitterbot|telegrambot|linkedinbot|discordbot|applebot|slackbot|skypeuripreview|whatsapp|googlebot|bingbot|pinterest|redditbot|viber|snapchat|instagram|flipboard|quora|yahoo|vkshare|w3c_validator|embedly|outbrain).*"
         }
       ],
       "destination": "https://backend-seven-delta-62.vercel.app/api/og-preview?category=:category"

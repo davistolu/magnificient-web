@@ -20,6 +20,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 import { SEO } from '../../components/common/SEO.js';
 
 export const ProductDetailPage: React.FC = () => {
@@ -27,6 +28,7 @@ export const ProductDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { success } = useToast();
+  const { buildWhatsAppUrl } = useSettings();
 
   const [product, setProduct] = useState<any>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -177,7 +179,7 @@ export const ProductDetailPage: React.FC = () => {
       `URL: ${window.location.href}`,
       `\nCould you please confirm current availability and provide ordering instructions?`,
     ].join('\n');
-    return `https://wa.me/2348000000000?text=${encodeURIComponent(msg)}`;
+    return buildWhatsAppUrl(msg);
   };
 
   const specs = Object.entries(product.specifications || {});

@@ -70,17 +70,16 @@ export async function processCheckout(req: Request, res: Response) {
 
   // 3. Calculate Shipping Fee from Store Settings
   const generalSettings = store.storeSettings.get('general');
-  const shippingSettings = generalSettings?.shipping || {
-    standardFee: 3500,
-    expressFee: 7000,
-    freeShippingThreshold: 150000,
-  };
+  const shippingSettings = generalSettings?.shipping || {};
+  const standardFee = Number(shippingSettings.standardFee ?? shippingSettings.standard_fee ?? 3500);
+  const expressFee = Number(shippingSettings.expressFee ?? shippingSettings.express_fee ?? 7000);
+  const freeThreshold = Number(shippingSettings.freeShippingThreshold ?? shippingSettings.free_shipping_threshold ?? 150000);
 
   let shippingAmount = validated.shippingMethod === 'express'
-    ? shippingSettings.expressFee
-    : shippingSettings.standardFee;
+    ? expressFee
+    : standardFee;
 
-  if (subtotal >= shippingSettings.freeShippingThreshold && validated.shippingMethod === 'standard') {
+  if (subtotal >= freeThreshold && validated.shippingMethod === 'standard') {
     shippingAmount = 0;
   }
 
@@ -182,7 +181,7 @@ export async function processCheckout(req: Request, res: Response) {
   // 9. If WhatsApp ordering, generate prefilled WhatsApp link
   let whatsappUrl: string | null = null;
   if (validated.paymentMethod === 'whatsapp') {
-    const rawNumber = generalSettings?.whatsappNumber || '+2348000000000';
+    const rawNumber = generalSettings?.whatsappNumber || generalSettings?.whatsapp_number || '+2348000000000';
     const cleanNumber = rawNumber.replace(/[^0-9]/g, '');
 
     const itemsSummary = validatedItems

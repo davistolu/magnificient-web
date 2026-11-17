@@ -18,10 +18,12 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 import { formatPrice, formatDateTime, getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 
 export const CustomerAccountPage: React.FC = () => {
   const { user, logout, isLoading: authLoading } = useAuth();
+  const { buildWhatsAppUrl } = useSettings();
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -325,7 +327,7 @@ export const CustomerAccountPage: React.FC = () => {
                           </Link>
                         )}
                         <a
-                          href={`https://wa.me/2348000000000?text=${encodeURIComponent(`Hello Magnificent Concierge, I am inquiring regarding my commission ${order.orderNumber}.`)}`}
+                          href={buildWhatsAppUrl(`Hello Magnificent Concierge, I am inquiring regarding my commission ${order.orderNumber}.`)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center space-x-1 px-3 py-2 border border-stone text-xs text-charcoal hover:text-espresso-900 hover:border-espresso-900 transition-colors"

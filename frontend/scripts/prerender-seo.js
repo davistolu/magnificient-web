@@ -337,6 +337,26 @@ const BUILTIN_PRODUCTS = [
       },
     ],
   },
+  {
+    id: 'prod-oud-al-layl-set',
+    categoryId: 'perfumes',
+    name: 'OUD AL LAYL SET',
+    slug: 'oud-al-layl-set',
+    sku: 'MAG-PRF-5922',
+    shortDescription: 'A MASCULINE STRONG FRAGRANCE',
+    description: 'A MASCULINE STRONG FRAGRANCE. Exclusive luxury creation by MagnifiScent.',
+    price: 25000,
+    compareAtPrice: null,
+    stockQuantity: 10,
+    brand: 'MagnifiScent',
+    images: [
+      {
+        imageUrl: 'https://backend-seven-delta-62.vercel.app/api/media/prod_1794938494858_b1cd8a42cad79c8f.jpeg',
+        altText: 'OUD AL LAYL SET',
+        isPrimary: true,
+      },
+    ],
+  },
 ];
 
 async function fetchLiveProducts() {
@@ -348,7 +368,7 @@ async function fetchLiveProducts() {
   const endpoint = `${API_URL}/products?limit=100`;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    const timer = setTimeout(() => controller.abort(), 15000);
 
     const res = await fetch(endpoint, {
       signal: controller.signal,
