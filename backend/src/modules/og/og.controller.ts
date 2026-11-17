@@ -92,7 +92,13 @@ function getHtmlTemplate(): string | null {
 }
 
 export async function renderOpenGraphPreview(req: Request, res: Response) {
-  const baseUrl = (process.env.FRONTEND_URL || 'https://magnifiscent.site').replace(/\/+$/, '');
+  const forwardedHost = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+  const forwardedProto = (req.headers['x-forwarded-proto'] as string) || 'https';
+  let hostUrl = '';
+  if (forwardedHost && (forwardedHost.includes('magnifiscent.site') || forwardedHost.includes('vercel.app'))) {
+    hostUrl = `${forwardedProto}://${forwardedHost}`;
+  }
+  const baseUrl = (hostUrl || process.env.FRONTEND_URL || 'https://www.magnifiscent.site').replace(/\/+$/, '');
 
   let slug = (req.query.slug as string || req.params.slug || '').trim();
   let category = (req.query.category as string || req.params.category || '').trim();
@@ -168,6 +174,17 @@ export async function renderOpenGraphPreview(req: Request, res: Response) {
     }
 
     if (product) {
+      if (productImages.length > 1) {
+        productImages.sort((a, b) => {
+          const aPrim = (a.isPrimary || (a as any).is_primary) ? 1 : 0;
+          const bPrim = (b.isPrimary || (b as any).is_primary) ? 1 : 0;
+          if (bPrim !== aPrim) return bPrim - aPrim;
+          const aOrder = a.displayOrder ?? (a as any).display_order ?? 0;
+          const bOrder = b.displayOrder ?? (b as any).display_order ?? 0;
+          return aOrder - bOrder;
+        });
+      }
+
       const canonicalUrl = `${baseUrl}/products/${product.slug}`;
       const title = `${product.name} | ${SITE_NAME}`;
       const priceFormatted = `₦${Number(product.price).toLocaleString()}`;

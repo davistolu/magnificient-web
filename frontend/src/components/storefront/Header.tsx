@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { itemCount, setIsCartOpen } = useCart();
   const { user, logout } = useAuth();
+  const { buildWhatsAppUrl } = useSettings();
   const location = useLocation();
 
   // Close mobile drawer on route change
@@ -389,7 +391,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
               {/* WhatsApp Concierge Direct Touch */}
               <a
-                href="https://wa.me/2348011223344?text=Hello%20MagnifiScent%20Private%20Concierge%2C%20I%20would%20like%20to%20enquire%20about%20a%20luxury%20creation."
+                href={buildWhatsAppUrl('Hello MagnifiScent Private Concierge, I would like to enquire about a luxury creation.')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center space-x-2 py-2 px-3 bg-emerald-800 text-white text-[10px] uppercase tracking-editorial font-semibold hover:bg-emerald-900 transition-colors"

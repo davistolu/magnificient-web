@@ -6,19 +6,35 @@ import { DEFAULT_STORE_SETTINGS } from '../../shared/index.js';
 export async function getPublicSettings(req: Request, res: Response) {
   const settings = store.storeSettings.get('general') || DEFAULT_STORE_SETTINGS;
 
+  const rawShipping = settings.shipping || {};
+  const standardFee = Number(
+    rawShipping.standardFee ?? rawShipping.standard_fee ?? 3500
+  );
+  const expressFee = Number(
+    rawShipping.expressFee ?? rawShipping.express_fee ?? 7000
+  );
+  const freeShippingThreshold = Number(
+    rawShipping.freeShippingThreshold ?? rawShipping.free_shipping_threshold ?? 150000
+  );
+
   return res.json({
     success: true,
     data: {
-      storeName: settings.storeName || 'MagnifiScent',
-      tagline: settings.tagline || 'Made to Be Remembered',
-      supportEmail: settings.supportEmail || 'concierge@magnifiscent.site',
-      whatsappNumber: settings.whatsappNumber || '+2348000000000',
-      whatsappEnabled: settings.whatsappEnabled ?? true,
+      storeName: settings.storeName || (settings as any).store_name || 'MagnifiScent',
+      tagline: settings.tagline || (settings as any).tagline || 'Made to Be Remembered',
+      supportEmail: settings.supportEmail || (settings as any).support_email || 'concierge@magnifiscent.site',
+      whatsappNumber: settings.whatsappNumber || (settings as any).whatsapp_number || '+2348000000000',
+      whatsappEnabled: settings.whatsappEnabled ?? (settings as any).whatsapp_enabled ?? true,
       currency: settings.currency || 'NGN',
-      currencySymbol: settings.currencySymbol || '₦',
+      currencySymbol: settings.currencySymbol || (settings as any).currency_symbol || '₦',
       announcement: settings.announcement,
-      bankDetails: settings.bankDetails,
-      shipping: settings.shipping,
+      bankDetails: settings.bankDetails || (settings as any).bank_details,
+      shipping: {
+        ...rawShipping,
+        standardFee,
+        expressFee,
+        freeShippingThreshold,
+      },
       hero: settings.hero,
     },
   });

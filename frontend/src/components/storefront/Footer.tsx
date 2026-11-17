@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useToast } from '../../context/ToastContext.js';
+import { useSettings } from '../../context/SettingsContext.js';
 
 export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const { error } = useToast();
+  const { cleanWhatsappNumber } = useSettings();
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +158,7 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <a
-                  href={`https://wa.me/${(import.meta.env.VITE_WHATSAPP_NUMBER || '2348000000000').replace(/[^0-9]/g, '')}`}
+                  href={`https://wa.me/${cleanWhatsappNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
