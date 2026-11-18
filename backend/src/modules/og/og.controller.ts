@@ -221,7 +221,21 @@ export async function renderOpenGraphPreview(req: Request, res: Response) {
     const canonicalUrl = `${baseUrl}/${category === 'shop' ? 'shop' : category}`;
     const title = catData.title;
     const description = catData.description;
-    const imageUrl = resolveFullUrl(catData.image, baseUrl);
+
+    let categoryImage = catData.image;
+    const catProducts = store.products.filter(
+      (p) => (p.categoryId === category || p.categoryId === `cat-${category}`) && p.status === 'published'
+    );
+    for (const prod of catProducts) {
+      const imgs = store.productImages.filter((img) => img.productId === prod.id);
+      const stillImg = imgs.find((img) => !/\.(mp4|webm|mov|ogg)($|\?)/i.test(img.imageUrl));
+      if (stillImg?.imageUrl) {
+        categoryImage = stillImg.imageUrl;
+        break;
+      }
+    }
+
+    const imageUrl = resolveFullUrl(categoryImage, baseUrl);
 
     const html = buildGenericHtml({
       title,

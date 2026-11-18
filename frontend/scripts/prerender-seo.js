@@ -511,10 +511,23 @@ async function main() {
 
   const baseHtml = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 
+  const products = await fetchLiveProducts();
+
   let count = 0;
   for (const cat of CATEGORY_PAGES) {
     const canonicalUrl = `${BASE_URL}/${cat.slug}`;
-    const imageUrl = resolveFullUrl(cat.image);
+    const sampleProduct = products.find(
+      (p) =>
+        p.category?.slug === cat.slug ||
+        p.categoryId === cat.slug ||
+        p.categoryId === `cat-${cat.slug}`
+    );
+    const prodImg =
+      sampleProduct?.images?.find((img) => img.isPrimary)?.imageUrl ||
+      sampleProduct?.images?.[0]?.imageUrl ||
+      sampleProduct?.imageUrl;
+    const imageUrl = resolveFullUrl(prodImg || cat.image);
+
     const pageHtml = generatePageHtml(baseHtml, {
       title: cat.title,
       description: cat.description,
@@ -534,7 +547,6 @@ async function main() {
   }
   console.log(`[SEO Prerender] Generated static shells for app routes: ${appRoutes.join(', ')}`);
 
-  const products = await fetchLiveProducts();
   let prodCount = 0;
 
   for (const prod of products) {
