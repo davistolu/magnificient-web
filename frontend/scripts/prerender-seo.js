@@ -527,6 +527,13 @@ async function main() {
   }
   console.log(`[SEO Prerender] Generated ${count} atelier & category routes`);
 
+  // Pre-render static fallback shells for internal app routes to guarantee 200 on direct visits
+  const appRoutes = ['admin', 'admin/login', 'login', 'register', 'cart', 'checkout', 'account'];
+  for (const route of appRoutes) {
+    writeHtmlFiles(route, baseHtml);
+  }
+  console.log(`[SEO Prerender] Generated static shells for app routes: ${appRoutes.join(', ')}`);
+
   const products = await fetchLiveProducts();
   let prodCount = 0;
 
