@@ -15,12 +15,32 @@ export async function listCategories(req: Request, res: Response) {
     .filter((c) => c.isActive !== false)
     .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
     .map((c) => {
-      const productCount = store.products.filter(
+      const categoryProducts = store.products.filter(
         (p) => (p.categoryId === c.id || p.categoryId === c.slug) && p.status === 'published'
-      ).length;
+      );
+      const productCount = categoryProducts.length;
+
+      let sampleProductImage: string | null = null;
+      for (const prod of categoryProducts) {
+        const imgs = store.productImages.filter((img) => img.productId === prod.id);
+        if (imgs && imgs.length > 0) {
+          const sortedImgs = [...imgs].sort((a, b) => {
+            if (a.isPrimary && !b.isPrimary) return -1;
+            if (!a.isPrimary && b.isPrimary) return 1;
+            return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+          });
+          const stillImg = sortedImgs.find((img) => !/\.(mp4|webm|mov|ogg)($|\?)/i.test(img.imageUrl));
+          if (stillImg?.imageUrl) {
+            sampleProductImage = stillImg.imageUrl;
+            break;
+          }
+        }
+      }
+
       return {
         ...c,
         productCount,
+        sampleProductImage,
       };
     });
 

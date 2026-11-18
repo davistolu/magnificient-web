@@ -4,20 +4,34 @@ import { ArrowRight, ShieldCheck, Clock, Award, MessageCircle, Gift } from 'luci
 import { api } from '../../services/api.js';
 import { ProductCard } from '../../components/storefront/ProductCard.js';
 import { SEO } from '../../components/common/SEO.js';
+import { getMediaUrl, isVideoMedia } from '../../utils/formatters.js';
 
 export const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [categoriesData, setCategoriesData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await api.getFeaturedProducts();
-        if (res.success) {
-          setFeaturedProducts(res.data);
+        const [featuredRes, productsRes, categoriesRes] = await Promise.allSettled([
+          api.getFeaturedProducts(),
+          api.getProducts({ limit: 60 }),
+          api.getCategories(),
+        ]);
+
+        if (featuredRes.status === 'fulfilled' && featuredRes.value?.success) {
+          setFeaturedProducts(featuredRes.value.data || []);
+        }
+        if (productsRes.status === 'fulfilled' && productsRes.value?.success) {
+          setAllProducts(productsRes.value.data || []);
+        }
+        if (categoriesRes.status === 'fulfilled' && categoriesRes.value?.success) {
+          setCategoriesData(categoriesRes.value.data || []);
         }
       } catch (err) {
-        console.error('Failed to load featured products', err);
+        console.error('Failed to load homepage data', err);
       } finally {
         setIsLoading(false);
       }
@@ -25,32 +39,79 @@ export const HomePage: React.FC = () => {
     loadData();
   }, []);
 
-  const categories = [
+  const baseCategories = [
     {
       title: 'Wristwatches',
       subtitle: 'Horological precision & Swiss mechanics',
       slug: 'watches',
-      imageUrl: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=1200&auto=format&fit=crop',
+      defaultImage: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=1200&auto=format&fit=crop',
     },
     {
       title: 'Fine Jewellery',
       subtitle: 'Handcrafted solid gold & rare gemstones',
       slug: 'jewellery',
-      imageUrl: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=1200&auto=format&fit=crop',
+      defaultImage: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=1200&auto=format&fit=crop',
     },
     {
       title: 'Niche Fragrances',
       subtitle: 'Artisanal extraits with rare botanicals',
       slug: 'perfumes',
-      imageUrl: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?q=80&w=1200&auto=format&fit=crop',
+      defaultImage: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?q=80&w=1200&auto=format&fit=crop',
     },
     {
       title: 'Curated Gift Sets',
       subtitle: 'Bespoke presentation for milestones',
       slug: 'gift-sets',
-      imageUrl: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=1200&auto=format&fit=crop',
+      defaultImage: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=1200&auto=format&fit=crop',
     },
   ];
+
+  const categories = baseCategories.map((cat) => {
+    const matchedCategory = categoriesData.find(
+      (c) => c.slug?.toLowerCase() === cat.slug.toLowerCase() || c.id === cat.slug || c.id === `cat-${cat.slug}`
+    );
+    const categoryId = matchedCategory?.id;
+
+    const combinedProducts = [...allProducts, ...featuredProducts];
+
+    const matchingProducts = combinedProducts.filter((p) => {
+      if (!p) return false;
+      const pSlug = p.category?.slug?.toLowerCase();
+      if (pSlug && pSlug === cat.slug.toLowerCase()) return true;
+      if (categoryId && (p.categoryId === categoryId || p.category_id === categoryId)) return true;
+      if (p.categoryId && (p.categoryId === cat.slug || p.categoryId === `cat-${cat.slug}`)) return true;
+      return false;
+    });
+
+    let productImage: string | null = null;
+    for (const prod of matchingProducts) {
+      if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
+        const stillImages = prod.images.filter(
+          (img: any) => img?.imageUrl && !isVideoMedia(img.imageUrl)
+        );
+        const primaryImg = stillImages.find((img: any) => img.isPrimary) || stillImages[0];
+        if (primaryImg?.imageUrl) {
+          productImage = getMediaUrl(primaryImg.imageUrl);
+          break;
+        }
+      }
+      if (prod.imageUrl && !isVideoMedia(prod.imageUrl)) {
+        productImage = getMediaUrl(prod.imageUrl);
+        break;
+      }
+    }
+
+    if (!productImage && matchedCategory?.sampleProductImage) {
+      productImage = getMediaUrl(matchedCategory.sampleProductImage);
+    }
+
+    return {
+      title: cat.title,
+      subtitle: cat.subtitle,
+      slug: cat.slug,
+      imageUrl: productImage || cat.defaultImage,
+    };
+  });
 
   const occasions = [
     { name: 'Anniversaries', slug: 'anniversary', desc: 'Timeless symbols of love' },
